@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 2.1 - 07/11/25
+## Revision 2.2 - 07/19/25
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -124,7 +124,7 @@ python agent.py
 1. We have partial implementations of an MCP server and an agent that uses an MCP client to connect to tools on the server. So that you can get acquainted with the main parts of each, we'll build them out as we did the agent in the second lab - by viewing differences and merging. Let's start with the server. Run the command below to see the differences.
 
 ```
-code -d ../extra/lab3-server.txt mcp_server.py
+code -d extra/lab3-server.txt mcp_server.py
 ```
 </br></br>
 ![MCP server code](./images/31ai17.png?raw=true "MCP server code") 
