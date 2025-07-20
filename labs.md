@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 2.3 - 07/19/25
+## Revision 2.4 - 07/20/25
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -265,7 +265,7 @@ High revenue branch
 
 1. For this lab, we're going to combine our previous agent that looks up weather with RAG to get information about offices based on a prompt and tell us what the weather is like for that locaion.
 
-2. We have a starter file for the new agent with rag in [**rag-agent.py**](./rag_agent.py). As before, we'll use the "view differences and merge" technique to learn about the code we'll be working with. The command to run this time is below. There are a number of helper functions in this code that are useful to understand. Take some time to look at each section as you merge them in.
+2. We have a starter file for the new agent with rag in [**rag_agent.py**](./rag_agent.py). As before, we'll use the "view differences and merge" technique to learn about the code we'll be working with. The command to run this time is below. There are a number of helper functions in this code that are useful to understand. Take some time to look at each section as you merge them in.
    
 ```
 code -d extra/lab5-agent.txt rag_agent.py
