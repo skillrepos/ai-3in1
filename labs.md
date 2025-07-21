@@ -79,7 +79,7 @@ curl http://localhost:11434/api/generate -d '{
 ```
 code agent.py
 ```
-![starting agent code](./images/31ai12.png?raw=true "Starting agent code")
+![starting agent code](./images/31ai32.png?raw=true "Starting agent code")
 
 2. As you can see, this outlines the steps the agent will go through without all the code. When you are done looking at it, close the file by clicking on the "X" in the tab at the top of the file.
 
