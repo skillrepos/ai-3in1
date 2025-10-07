@@ -1,0 +1,530 @@
+#!/usr/bin/env python3
+"""
+MCP Server with Canonical Query Classification & Prompt Templates
+─────────────────────────────────────────────────────────────────
+Lab 6: Building the Classification MCP Server
+
+This server provides a sophisticated approach to canonical queries:
+1. CLASSIFICATION TOOLS - Help determine which canonical query to use
+2. PROMPT TEMPLATES - Return structured prompts for LLM execution
+3. DATA TOOLS - Provide raw data for analysis
+4. VALIDATION TOOLS - Verify query parameters and constraints
+"""
+
+from __future__ import annotations
+
+import time
+from typing import Final
+from pathlib import Path
+import json
+
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+from fastmcp import FastMCP
+import pandas as pd
+
+# ╔══════════════════════════════════════════════════════════════════╗
+# 1. Configuration and Constants                                     ║
+# ╚══════════════════════════════════════════════════════════════════╝
+WEATHER_CODES: Final[dict[int, str]] = {
+    0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+    45: "Fog", 48: "Depositing rime fog", 51: "Light drizzle", 
+    53: "Moderate drizzle", 55: "Dense drizzle", 61: "Slight rain",
+    63: "Moderate rain", 65: "Heavy rain", 71: "Slight snow fall",
+    73: "Moderate snow fall", 75: "Heavy snow fall", 95: "Thunderstorm",
+}
+
+MAX_RETRIES = 3
+BACKOFF_FACTOR = 1.5
+TRANSIENT_CODES = {429, 500, 502, 503, 504}
+
+retry_cfg = Retry(
+    total=MAX_RETRIES - 1,
+    backoff_factor=BACKOFF_FACTOR,
+    status_forcelist=list(TRANSIENT_CODES),
+    allowed_methods=["GET"],
+    raise_on_status=False,
+)
+
+session = requests.Session()
+session.mount("https://", HTTPAdapter(max_retries=retry_cfg))
+
+OFFICE_DATA_PATH = Path("data/offices.csv")
+_office_data_cache = None
+
+def _get_office_data() -> pd.DataFrame:
+    """Get office data, using cache if available."""
+    global _office_data_cache
+    if _office_data_cache is None:
+        if not OFFICE_DATA_PATH.exists():
+            raise FileNotFoundError(f"Office data not found at {OFFICE_DATA_PATH}")
+        _office_data_cache = pd.read_csv(OFFICE_DATA_PATH)
+    return _office_data_cache
+
+# ╔══════════════════════════════════════════════════════════════════╗
+# 2. Canonical Query Definitions and Templates                       ║
+# ╚══════════════════════════════════════════════════════════════════╝
+CANONICAL_QUERIES = {
+    "revenue_stats": {
+        "description": "Calculate revenue statistics across all offices",
+        "parameters": [],
+        "data_requirements": ["revenue_million", "city"],
+        "prompt_template": """You are a financial analyst. Calculate revenue statistics from the office data below.
+
+Office Revenue Data:
+{data}
+
+Please calculate and report:
+1. Which office has the highest revenue (city name and amount)
+2. Which office has the lowest revenue (city name and amount)
+3. Average revenue across all offices (in millions, to 1 decimal)
+4. Total revenue across all offices
+
+Be precise and only use the data provided above.""",
+        "example_queries": [
+            "What's the average revenue?",
+            "Show me revenue statistics",
+            "How much revenue do we make?",
+            "Which office has the highest revenue?",
+            "What office has the most revenue?"
+        ]
+    },
+    
+    "employee_analysis": {
+        "description": "Analyze employee distribution across offices", 
+        "parameters": [],
+        "data_requirements": ["employees", "city"],
+        "prompt_template": """You are a data analyst. Analyze the office employee data below and provide a factual summary.
+
+Office Employee Data:
+{data}
+
+Please calculate and report:
+1. Which office has the most employees (provide exact city name and number)
+2. Total employees across all offices
+3. Average employees per office (round to 1 decimal)
+4. Brief insight about the distribution
+
+Be factual and precise. Only use the data provided above.""",
+        "example_queries": [
+            "Which office has the most employees?",
+            "Show me employee statistics",
+            "How are employees distributed?"
+        ]
+    },
+    
+    "growth_analysis": {
+        "description": "Analyze office growth patterns by opening year",
+        "parameters": [
+            {"name": "year_threshold", "type": "int", "description": "Year to filter by", "required": True}
+        ],
+        "data_requirements": ["opened_year", "city", "state"],
+        "prompt_template": """
+Analyze office growth patterns after {year_threshold}.
+
+Data: {data}
+
+Analyze and present:
+1. Offices opened after {year_threshold}
+2. Growth trends and patterns
+3. Geographic distribution of newer offices
+4. Business insights about expansion
+
+Format as a strategic business analysis.
+""",
+        "example_queries": [
+            "What offices opened after 2014?",
+            "Show me our growth since 2010",
+            "Which offices are newer?"
+        ]
+    },
+    
+    "efficiency_analysis": {
+        "description": "Calculate revenue efficiency (revenue per employee)",
+        "parameters": [],
+        "data_requirements": ["revenue_million", "employees", "city"],
+        "prompt_template": """You are a business analyst. Calculate revenue efficiency for each office using the data below.
+
+Office Data:
+{data}
+
+Please calculate and report:
+1. Revenue per employee for each office (revenue_million / employees, to 2 decimals)
+2. Which office is most efficient (highest revenue per employee)
+3. Which office is least efficient (lowest revenue per employee)
+4. Average efficiency across all offices
+
+Be precise and show your calculations. Only use the data provided above.""",
+        "example_queries": [
+            "Which office is most efficient?",
+            "Show me revenue per employee",
+            "What's our efficiency like?"
+        ]
+    },
+    
+    "office_profile": {
+        "description": "Detailed profile of a specific office",
+        "parameters": [
+            {"name": "city", "type": "str", "description": "City name to profile", "required": True}
+        ],
+        "data_requirements": ["city", "state", "employees", "revenue_million", "opened_year"],
+        "prompt_template": """
+Create a detailed profile for the {city} office.
+
+Data: {data}
+
+Present a comprehensive profile including:
+1. Location and basic details
+2. Employee count and revenue
+3. Opening year and tenure
+4. Performance compared to other offices
+5. Key strengths and characteristics
+
+Format as a detailed office profile.
+""",
+        "example_queries": [
+            "Tell me about the Chicago office",
+            "What's the profile of our New York location?",
+            "Give me details on the Austin office"
+        ]
+    }
+}
+
+# ╔══════════════════════════════════════════════════════════════════╗
+# 3. FastMCP Server and Tools                                        ║
+# ╚══════════════════════════════════════════════════════════════════╝
+mcp = FastMCP("CanonicalQueryServer")
+
+# ─── Weather Tools (from previous labs) ──────────────────────────────────────
+
+@mcp.tool
+def get_weather(lat: float, lon: float) -> dict:
+    """Fetch current weather from Open-Meteo API."""
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
+    
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            resp = session.get(url, timeout=15)
+            if resp.status_code in TRANSIENT_CODES:
+                raise requests.HTTPError(resp.status_code)
+            resp.raise_for_status()
+            
+            cw = resp.json()["current_weather"]
+            code = cw["weathercode"]
+            return {
+                "temperature": cw["temperature"],
+                "code": code,
+                "conditions": WEATHER_CODES.get(code, "Unknown"),
+            }
+        except (requests.RequestException, KeyError, ValueError):
+            if attempt == MAX_RETRIES:
+                raise
+            time.sleep(BACKOFF_FACTOR ** (attempt - 1))
+
+@mcp.tool
+def convert_c_to_f(c: float) -> float:
+    """Convert Celsius to Fahrenheit."""
+    return c * 9 / 5 + 32
+
+# ─── Query Classification Tools ───────────────────────────────────
+
+@mcp.tool
+def list_canonical_queries() -> dict:
+    """
+    List all available canonical queries with descriptions.
+    
+    Returns
+    -------
+    dict
+        {"queries": [{"name": str, "description": str, "parameters": list}]}
+    """
+    queries = []
+    for name, config in CANONICAL_QUERIES.items():
+        queries.append({
+            "name": name,
+            "description": config["description"],
+            "parameters": config["parameters"],
+            "example_queries": config["example_queries"]
+        })
+    
+    return {"queries": queries}
+
+@mcp.tool
+def classify_canonical_query(user_query: str) -> dict:
+    """
+    Classify which canonical query best matches user intent.
+    
+    Parameters
+    ----------
+    user_query : str
+        Natural language query from user
+        
+    Returns
+    -------
+    dict
+        {"suggested_query": str, "confidence": float, "alternatives": list, "reason": str}
+    """
+    user_lower = user_query.lower()
+    scores = {}
+    
+    # Simple keyword matching for classification
+    for query_name, config in CANONICAL_QUERIES.items():
+        score = 0
+        examples = config["example_queries"]
+        
+        # Check for keyword matches
+        for example in examples:
+            example_words = set(example.lower().split())
+            user_words = set(user_lower.split())
+            overlap = len(example_words.intersection(user_words))
+            if overlap > 0:
+                score += overlap / len(example_words)
+        
+        # Boost score for direct keyword matches
+        if "revenue" in user_lower and "revenue" in query_name:
+            score += 0.5
+        if "employee" in user_lower and "employee" in query_name:
+            score += 0.5
+        if "efficiency" in user_lower and "efficiency" in query_name:
+            score += 0.5
+        if any(word in user_lower for word in ["opened", "growth", "new"]) and "growth" in query_name:
+            score += 0.4
+            
+        # Special patterns for revenue queries
+        if any(phrase in user_lower for phrase in ["highest revenue", "most revenue", "which office", "what office"]) and "revenue" in query_name:
+            score += 0.8
+            
+        # Only boost office_profile for specific office mentions, not generic "which office" questions
+        if query_name == "office_profile":
+            # Look for specific city names, not question words
+            city_indicators = ["tell me about", "profile", "details", "information about"]
+            if any(indicator in user_lower for indicator in city_indicators):
+                score += 0.3
+            # Penalize if it's a "which/what" question about revenue/employees
+            if any(word in user_lower for word in ["which", "what"]) and any(word in user_lower for word in ["revenue", "employees", "most", "highest"]):
+                score -= 0.5
+            
+        scores[query_name] = score
+    
+    # Find best match
+    if not scores or max(scores.values()) == 0:
+        return {
+            "suggested_query": None,
+            "confidence": 0.0,
+            "alternatives": [],
+            "reason": "No matching canonical query found"
+        }
+    
+    best_query = max(scores, key=scores.get)
+    confidence = min(scores[best_query], 1.0)
+    
+    # Get alternatives (other queries with score > 0)
+    alternatives = [
+        {"query": name, "score": score} 
+        for name, score in sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        if score > 0 and name != best_query
+    ][:3]
+    
+    return {
+        "suggested_query": best_query,
+        "confidence": confidence,
+        "alternatives": alternatives,
+        "reason": f"Best keyword match with confidence {confidence:.2f}"
+    }
+
+@mcp.tool
+def get_query_template(query_name: str, city: str = None, year_threshold: int = None) -> dict:
+    """
+    Get the prompt template for a canonical query.
+    
+    Parameters
+    ----------
+    query_name : str
+        Name of the canonical query
+    city : str, optional
+        City parameter for office_profile queries
+    year_threshold : int, optional
+        Year parameter for growth_analysis queries
+        
+    Returns
+    -------
+    dict
+        {"template": str, "data_requirements": list, "parameters_used": dict}
+    """
+    if query_name not in CANONICAL_QUERIES:
+        return {"error": f"Unknown canonical query: {query_name}"}
+    
+    config = CANONICAL_QUERIES[query_name]
+    template = config["prompt_template"]
+    
+    # Build parameters dict from provided arguments
+    parameters = {}
+    if city is not None:
+        parameters["city"] = city
+    if year_threshold is not None:
+        parameters["year_threshold"] = year_threshold
+    
+    # Only substitute non-data parameters in template
+    # Leave {data} placeholder for later substitution by the client
+    try:
+        if parameters:
+            # Create a safe template that doesn't try to format {data}
+            safe_template = template.replace("{data}", "DATAPLACEHOLDER")
+            formatted_template = safe_template.format(**parameters)
+            formatted_template = formatted_template.replace("DATAPLACEHOLDER", "{data}")
+        else:
+            # No parameters to substitute, return template as-is
+            formatted_template = template
+    except KeyError as e:
+        return {"error": f"Missing required parameter: {e}"}
+    
+    return {
+        "template": formatted_template,
+        "data_requirements": config["data_requirements"],
+        "parameters_used": parameters
+    }
+
+# ─── Data Access Tools ──────────────────────────────────────────────
+
+@mcp.tool  
+def get_office_dataset() -> dict:
+    """
+    Get the complete office dataset.
+    
+    Returns
+    -------
+    dict
+        {"data": list, "columns": list, "count": int}
+    """
+    try:
+        df = _get_office_data()
+        return {
+            "data": df.to_dict(orient="records"),
+            "columns": list(df.columns),
+            "count": len(df)
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@mcp.tool
+def get_filtered_office_data(columns: list = None, filters: dict = None) -> dict:
+    """
+    Get filtered office data for specific analysis.
+    
+    Parameters
+    ----------
+    columns : list, optional
+        Specific columns to return
+    filters : dict, optional
+        Filters to apply (e.g., {"opened_year": {"gt": 2014}})
+        
+    Returns
+    -------
+    dict
+        {"data": list, "count": int, "filters_applied": dict}
+    """
+    try:
+        df = _get_office_data()
+        
+        # Apply filters
+        if filters:
+            for col, condition in filters.items():
+                if col in df.columns:
+                    if isinstance(condition, dict):
+                        if "gt" in condition:
+                            df = df[df[col] > condition["gt"]]
+                        if "lt" in condition:
+                            df = df[df[col] < condition["lt"]]
+                        if "eq" in condition:
+                            df = df[df[col] == condition["eq"]]
+                    else:
+                        df = df[df[col] == condition]
+        
+        # Select columns
+        if columns:
+            available_cols = [col for col in columns if col in df.columns]
+            df = df[available_cols]
+        
+        return {
+            "data": df.to_dict(orient="records"),
+            "count": len(df),
+            "filters_applied": filters or {},
+            "columns": list(df.columns)
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+# ─── Validation Tools ──────────────────────────────────────────────
+
+@mcp.tool
+def validate_query_parameters(query_name: str, parameters: dict) -> dict:
+    """
+    Validate parameters for a canonical query.
+    
+    Parameters
+    ----------
+    query_name : str
+        Name of canonical query
+    parameters : dict
+        Parameters to validate
+        
+    Returns
+    -------
+    dict
+        {"valid": bool, "missing": list, "invalid": list, "suggestions": list}
+    """
+    if query_name not in CANONICAL_QUERIES:
+        return {"error": f"Unknown canonical query: {query_name}"}
+    
+    config = CANONICAL_QUERIES[query_name]
+    required_params = [p for p in config["parameters"] if p.get("required", False)]
+    
+    missing = []
+    invalid = []
+    suggestions = []
+    
+    # Check required parameters
+    for param in required_params:
+        param_name = param["name"]
+        if param_name not in parameters:
+            missing.append(param_name)
+            suggestions.append(f"Add {param_name}: {param['description']}")
+    
+    # Validate parameter types
+    for param_name, value in parameters.items():
+        param_config = next((p for p in config["parameters"] if p["name"] == param_name), None)
+        if param_config:
+            expected_type = param_config["type"]
+            if expected_type == "int" and not isinstance(value, int):
+                try:
+                    int(value)
+                except (ValueError, TypeError):
+                    invalid.append(f"{param_name} must be an integer")
+    
+    return {
+        "valid": len(missing) == 0 and len(invalid) == 0,
+        "missing": missing,
+        "invalid": invalid,
+        "suggestions": suggestions
+    }
+
+# ╔══════════════════════════════════════════════════════════════════╗
+# 4. Server Startup                                                 ║
+# ╚══════════════════════════════════════════════════════════════════╝
+if __name__ == "__main__":
+    print("Starting Canonical Query Classification MCP Server...")
+    print("\nAvailable tool categories:")
+    print("  [Weather]: get_weather, convert_c_to_f")
+    print("  [Classification]: list_canonical_queries, classify_canonical_query")
+    print("  [Templates]: get_query_template, validate_query_parameters")
+    print("  [Data]: get_office_dataset, get_filtered_office_data")
+    print("\nWorkflow:")
+    print("  1. Client sends natural language query")
+    print("  2. Use classify_canonical_query to determine intent")
+    print("  3. Use get_query_template to get LLM prompt")
+    print("  4. Use data tools to get required data")
+    print("  5. Client executes LLM with template + data")
+    print("\nServer endpoint: POST http://127.0.0.1:8000/mcp/")
+    
+    mcp.run(transport="http", host="127.0.0.1", port=8000, path="/mcp/")
