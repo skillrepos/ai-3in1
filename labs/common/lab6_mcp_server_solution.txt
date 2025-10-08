@@ -19,8 +19,10 @@ from pathlib import Path
 import json
 
 import requests
-from fastmcp import FastMCP
+from requests.adapters import HTTPAdapter
+
 import pandas as pd
+from fastmcp import FastMCP
 
 # ╔══════════════════════════════════════════════════════════════════╗
 # 1. Configuration and Constants                                     ║

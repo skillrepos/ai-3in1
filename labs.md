@@ -445,7 +445,7 @@ Tell me about the Southern office
 code -d labs/common/lab6_mcp_server_solution.txt mcp_server_classification.py
 ```
 
-![Updating the MCP server](./images/aiapps6.png?raw=true "Updating the MCP server") 
+![Updating the MCP server](./images/aiapps21.png?raw=true "Updating the MCP server") 
 
 <br><br>
 
@@ -483,7 +483,7 @@ python mcp_server_classification.py
 
 <br><br>
 
-7. Let's test the classification capability. Open a second terminal and test the discovery tool:
+7. Let's see the list of tools the MCP server makes available. Run the discovery tool again.
 
 ```
 python tools/discover_tools.py
@@ -491,9 +491,9 @@ python tools/discover_tools.py
 
 <br><br>
 
-8. You should see several new tools listed, including `classify_canonical_query`, `get_query_template`, `get_filtered_office_data`, etc. This confirms our classification server is running properly.
+8. You should see several new tools listed, including `classify_canonical_query`, `get_query_template`, `get_filtered_office_data`, etc. This confirms our classification server is running properly. (You may need to scroll down to see these.)
 
-![Discover tools](./images/aiapps9.png?raw=true "Discover tools") 
+![Discover tools](./images/aiapps22.png?raw=true "Discover tools") 
 
 <br><br>
 

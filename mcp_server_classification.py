@@ -5,7 +5,6 @@ MCP Server with Canonical Query Classification & Prompt Templates
 Lab 6: Building the Classification MCP Server
 
 This server provides a sophisticated approach to canonical queries:
-
 """
 
 from __future__ import annotations
@@ -17,9 +16,9 @@ import json
 
 import requests
 from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-from fastmcp import FastMCP
+
 import pandas as pd
+from fastmcp import FastMCP
 
 # ╔══════════════════════════════════════════════════════════════════╗
 # 1. Configuration and Constants                                     ║
@@ -36,22 +35,11 @@ MAX_RETRIES = 3
 BACKOFF_FACTOR = 1.5
 TRANSIENT_CODES = {429, 500, 502, 503, 504}
 
-retry_cfg = Retry(
-    total=MAX_RETRIES - 1,
-    backoff_factor=BACKOFF_FACTOR,
-    status_forcelist=list(TRANSIENT_CODES),
-    allowed_methods=["GET"],
-    raise_on_status=False,
-)
-
-session = requests.Session()
-session.mount("https://", HTTPAdapter(max_retries=retry_cfg))
-
 OFFICE_DATA_PATH = Path("data/offices.csv")
 _office_data_cache = None
 
 def _get_office_data() -> pd.DataFrame:
-    """Get office data, using cache if available."""
+
     global _office_data_cache
     if _office_data_cache is None:
         if not OFFICE_DATA_PATH.exists():
@@ -59,17 +47,12 @@ def _get_office_data() -> pd.DataFrame:
         _office_data_cache = pd.read_csv(OFFICE_DATA_PATH)
     return _office_data_cache
 
-# ╔══════════════════════════════════════════════════════════════════╗
-# 2. Canonical Query Definitions and Templates                       ║
-# ╚══════════════════════════════════════════════════════════════════╝
 CANONICAL_QUERIES = {
     "revenue_stats": {
         "description": "Calculate revenue statistics across all offices",
         "parameters": [],
         "data_requirements": ["revenue_million", "city"],
-       
         "example_queries": [
-   
         ]
     },
     
@@ -77,9 +60,7 @@ CANONICAL_QUERIES = {
         "description": "Analyze employee distribution across offices", 
         "parameters": [],
         "data_requirements": ["employees", "city"],
- 
         "example_queries": [
-
         ]
     },
     
@@ -89,9 +70,7 @@ CANONICAL_QUERIES = {
             {"name": "year_threshold", "type": "int", "description": "Year to filter by", "required": True}
         ],
         "data_requirements": ["opened_year", "city", "state"],
-
         "example_queries": [
-
         ]
     },
     
@@ -99,9 +78,7 @@ CANONICAL_QUERIES = {
         "description": "Calculate revenue efficiency (revenue per employee)",
         "parameters": [],
         "data_requirements": ["revenue_million", "employees", "city"],
- ,
         "example_queries": [
- 
         ]
     },
     
@@ -111,9 +88,7 @@ CANONICAL_QUERIES = {
             {"name": "city", "type": "str", "description": "City name to profile", "required": True}
         ],
         "data_requirements": ["city", "state", "employees", "revenue_million", "opened_year"],
- 
         "example_queries": [
-     
         ]
     }
 }
@@ -127,16 +102,31 @@ mcp = FastMCP("CanonicalQueryServer")
 
 @mcp.tool
 def get_weather(lat: float, lon: float) -> dict:
-    """Fetch current weather from Open-Meteo API."""
+    """
+    Fetch current weather from Open-Meteo API with retry logic.
+
+    Returns dict with temperature, code, and conditions, or error key on failure.
+    """
     url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
-    
-    for attempt in range(1, MAX_RETRIES + 1):
+
+    last_error = None
+
+    for attempt in range(MAX_RETRIES):
         try:
+            # Create a fresh session for each retry to avoid connection pool issues
+            session = requests.Session()
             resp = session.get(url, timeout=15)
+            session.close()  # Explicitly close the session
+
+            # Check for transient errors that should trigger retry
             if resp.status_code in TRANSIENT_CODES:
-                raise requests.HTTPError(resp.status_code)
+                last_error = f"HTTP {resp.status_code}"
+                if attempt < MAX_RETRIES - 1:
+                    time.sleep(BACKOFF_FACTOR ** attempt)
+                    continue
+
             resp.raise_for_status()
-            
+
             cw = resp.json()["current_weather"]
             code = cw["weathercode"]
             return {
@@ -144,15 +134,116 @@ def get_weather(lat: float, lon: float) -> dict:
                 "code": code,
                 "conditions": WEATHER_CODES.get(code, "Unknown"),
             }
-        except (requests.RequestException, KeyError, ValueError):
-            if attempt == MAX_RETRIES:
-                raise
-            time.sleep(BACKOFF_FACTOR ** (attempt - 1))
+
+        except requests.HTTPError as e:
+            last_error = f"HTTP {e.response.status_code}"
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(BACKOFF_FACTOR ** attempt)
+                continue
+
+        except requests.RequestException as e:
+            last_error = f"{type(e).__name__}"
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(BACKOFF_FACTOR ** attempt)
+                continue
+
+        except (KeyError, ValueError) as e:
+            # Data format errors shouldn't be retried
+            return {
+                "error": f"Received invalid data from weather service: {type(e).__name__}. Please try again later."
+            }
+
+    # All retries exhausted
+    return {
+        "error": f"Weather service failed after {MAX_RETRIES} attempts (last error: {last_error}). Please try again later."
+    }
 
 @mcp.tool
 def convert_c_to_f(c: float) -> float:
     """Convert Celsius to Fahrenheit."""
     return c * 9 / 5 + 32
+
+@mcp.tool
+def geocode_location(name: str) -> dict:
+    """
+    Geocode a location name to latitude/longitude coordinates using Open-Meteo's geocoding API.
+
+    Retry policy
+    ------------
+    * Up to MAX_RETRIES total attempts with fresh connections.
+    * Retries on network errors **or** HTTP 429/5xx.
+    * Exponential back-off (1.5 s, 2.25 s, …).
+    * Each retry uses a new session to avoid connection pool issues.
+
+    Parameters
+    ----------
+    name : str
+        Location name (e.g., "San Francisco", "Paris, France", "London, UK")
+
+    Returns
+    -------
+    dict
+        {
+            "latitude": <float>,
+            "longitude": <float>,
+            "name": <matched location name>,
+            "error": <error message if request failed>
+        }
+    """
+    url = "https://geocoding-api.open-meteo.com/v1/search"
+    last_error = None
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            # Create a fresh session for each retry to avoid connection pool issues
+            session = requests.Session()
+            resp = session.get(url, params={"name": name, "count": 1}, timeout=15)
+            session.close()  # Explicitly close the session
+
+            # Check for transient errors that should trigger retry
+            if resp.status_code in TRANSIENT_CODES:
+                last_error = f"HTTP {resp.status_code}"
+                if attempt < MAX_RETRIES - 1:
+                    time.sleep(BACKOFF_FACTOR ** attempt)
+                    continue
+
+            resp.raise_for_status()
+
+            data = resp.json()
+            if data.get("results"):
+                hit = data["results"][0]
+                return {
+                    "latitude": hit["latitude"],
+                    "longitude": hit["longitude"],
+                    "name": hit.get("name", name),
+                }
+            else:
+                return {
+                    "error": f"No location found for '{name}'. Try a different search term."
+                }
+
+        except requests.HTTPError as e:
+            last_error = f"HTTP {e.response.status_code}"
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(BACKOFF_FACTOR ** attempt)
+                continue
+
+        except requests.RequestException as e:
+            last_error = f"{type(e).__name__}"
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(BACKOFF_FACTOR ** attempt)
+                continue
+
+        except (KeyError, ValueError) as e:
+            # Data format errors shouldn't be retried
+            return {
+                "error": f"Received invalid data from geocoding service: {type(e).__name__}. Please try again later."
+            }
+
+    # All retries exhausted
+    return {
+        "error": f"Geocoding service failed after {MAX_RETRIES} attempts (last error: {last_error}). Please try again later."
+    }
 
 # ─── Query Classification Tools ───────────────────────────────────
 
@@ -278,7 +369,6 @@ def list_canonical_queries() -> dict:
     if query_name not in CANONICAL_QUERIES:
         return {"error": f"Unknown canonical query: {query_name}"}
     
-
     
     # Build parameters dict from provided arguments
     parameters = {}
@@ -290,13 +380,11 @@ def list_canonical_queries() -> dict:
     # Only substitute non-data parameters in template
     # Leave {data} placeholder for later substitution by the client
     try:
-        if parameters:
-          
+        if parameters:          
     except KeyError as e:
         return {"error": f"Missing required parameter: {e}"}
     
     return {
-
     }
 
 # ─── Data Access Tools ──────────────────────────────────────────────
@@ -312,7 +400,6 @@ def get_office_dataset() -> dict:
         {"data": list, "columns": list, "count": int}
     """
     try:
-
         return {
             "data": df.to_dict(orient="records"),
             "columns": list(df.columns),
@@ -324,7 +411,7 @@ def get_office_dataset() -> dict:
 @mcp.tool
 def get_filtered_office_data(columns: list = None, filters: dict = None) -> dict:
     """
-    Get filtered office data for specific analysis.
+
     
     Parameters
     ----------
@@ -344,7 +431,16 @@ def get_filtered_office_data(columns: list = None, filters: dict = None) -> dict
         # Apply filters
         if filters:
             for col, condition in filters.items():
-
+                if col in df.columns:
+                    if isinstance(condition, dict):
+                        if "gt" in condition:
+                            df = df[df[col] > condition["gt"]]
+                        if "lt" in condition:
+                            df = df[df[col] < condition["lt"]]
+                        if "eq" in condition:
+                            df = df[df[col] == condition["eq"]]
+                    else:
+                        df = df[df[col] == condition]
         
         # Select columns
         if columns:
