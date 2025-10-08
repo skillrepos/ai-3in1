@@ -74,7 +74,7 @@ mcp = FastMCP("WeatherServer")
 # ─── Weather Tool ────────────────────────────────────────────────────
 
 @mcp.tool
-def get_weather(lat: float, lon: float) -> dict:
+
     """
     Fetch **current weather** from Open-Meteo and return a concise dict.
 
