@@ -128,8 +128,8 @@ async def process_query_with_progress(user_query):
         # Actually process the query with timeout
         try:
             print(f"\n[Streamlit] Starting query processing: {user_query}")
-            # Use asyncio.wait_for to add a timeout (120 seconds for LLM processing)
-            result = await asyncio.wait_for(process_query(user_query), timeout=120.0)
+            # Use asyncio.wait_for to add a timeout (300 seconds for LLM processing)
+            result = await asyncio.wait_for(process_query(user_query), timeout=300.0)
             print(f"[Streamlit] Query processing completed, result length: {len(result) if result else 0}")
 
             with step4:
@@ -138,7 +138,7 @@ async def process_query_with_progress(user_query):
             return result, None
 
         except asyncio.TimeoutError:
-            print(f"[Streamlit] ERROR: Query timed out after 120s")
+            print(f"[Streamlit] ERROR: Query timed out after 300s")
             with step4:
                 st.markdown('<div class="processing-step">[ERROR] Processing timed out</div>', unsafe_allow_html=True)
             return None, "The query processing took too long. Please try a simpler question or check if the LLM service is available."
