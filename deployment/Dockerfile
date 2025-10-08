@@ -21,6 +21,12 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application files
 COPY . .
 
+# Create data directory and ChromaDB directory with proper permissions
+RUN mkdir -p data && \
+    mkdir -p mcp_chroma_db && \
+    chmod -R 777 mcp_chroma_db && \
+    chmod -R 755 data
+    
 # Create data and chroma_db directories with proper permissions
 RUN mkdir -p data chroma_db && chmod -R 777 data chroma_db
 

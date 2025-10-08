@@ -756,7 +756,7 @@ streamlit run streamlit_app.py
 ![creating a new token](./images/aiapps13.png?raw=true "Creating a new token")
 </br></br></br>
 
-3. After you click the Create button, your new token will be displayed on the screen. Make sure to Copy it and save it somewhere you can get to it for the next steps. You will not be able to see it again.
+3. After you click the Create button, your new token will be displayed on the screen. **Make sure to copy it and save it somewhere you can get to it for the next steps. You will not be able to see it again.**
 
 ![new token displayed](./images/aiapps14.png?raw=true "New token displayed")  
 </br></br></br>
@@ -791,26 +791,15 @@ hf repo create --repo-type space --space_sdk docker aiapp
 
 <br><br>
 
-START HERE and add list of files to copy.
-7. Now, we need to copy the deployment files we need into the new repo. Run the following copy commands.
+7. Now, we need to copy the deployment files we need into the new repo. Run the following copy commands. To make this simple, there's already a script that will copy and locate the needed files in [**scripts/copyfiles.sh**](./scripts/copyfiles.sh). You can look at that with the usual methods if you want. When ready, go ahead and change into the *aiapp* directory and run it. **This will run very quickly.**
    ```
-   cp /workspaces/ai-apps/app.py .
-   cp /workspaces/ai-apps/data/offices.csv .
-   ```
-
-<br><br>
-
-6. **Create a requirements.txt file** for the Space:
-   ```
-   echo "streamlit==1.40.0
-   pandas==2.1.4
-   plotly==5.18.0
-   requests==2.32.4" > requirements.txt
+   cd aiapp
+   ../scripts/copyfiles.sh
    ```
 
 <br><br>
 
-7. **Create a README.md** with Space configuration:
+7. **Create a new README.md** for the space configuration. Do this from the *aiapp* directory. You can use the command below.
    ```
    cat > README.md << 'EOF'
    ---
@@ -827,15 +816,13 @@ START HERE and add list of files to copy.
 
    # AI Office Assistant 🏢
 
-   An intelligent office data analysis tool powered by classification-based RAG (Retrieval-Augmented Generation).
+   An intelligent office data analysis tool powered by classification-based and traditional RAG (Retrieval-Augmented Generation).
 
    ## Features
 
    - **Natural Language Queries**: Ask questions in plain English
    - **Intelligent Classification**: Automatically determines your intent
    - **Office Analytics**: Revenue, employee, and efficiency analysis
-   - **Real-time Processing**: Fast responses with embedded intelligence
-   - **Fallback Architecture**: Works with or without external dependencies
 
    ## Example Queries
 
@@ -845,53 +832,46 @@ START HERE and add list of files to copy.
    - "Show me efficiency analysis"
    - "What's the average revenue across all offices?"
 
-   Built with ❤️ using Streamlit and advanced AI techniques.
+   Built with Streamlit and advanced AI techniques.
+
    EOF
    ```
 
 <br><br>
 
-8. **Deploy to Hugging Face**:
+8. Push the changes back to the Hugging Face repo. **Notice there is a required "." at the end of the command.**
    ```
-   git add .
-   git commit -m "Deploy AI Office Assistant to Hugging Face Spaces"
-   git push
+   hf upload --repo-type space aiapp .
    ```
 
 <br><br>
 
 9. **Monitor the deployment**:
    - Go back to your Space page on Hugging Face
-   - You'll see the build process in the logs
+   - You'll see the build process and container execution in the logs
    - The Space will automatically start once the build completes (usually 2-3 minutes)
+
+![Deployment in progress](./images/aiapps26.png?raw=true "Deployment in progress") 
 
 <br><br>
 
 10. **Test your deployed application**:
     - Once the Space is running, you'll see your Streamlit app
     - Try the same queries you tested locally
-    - Notice that it uses "Embedded Mode" since there's no MCP server in the cloud
-    - The embedded mode provides the same analytical capabilities!
+
+![Testing deployed app](./images/aiapps25.png?raw=true "Testing deployed app") 
 
 <br><br>
 
 11. **Key features of the cloud deployment**:
     - **Self-contained**: All intelligence runs in the browser without external dependencies
-    - **Fast**: Embedded processing typically responds in under 1 second
-    - **Reliable**: No external service dependencies to fail
-    - **Scalable**: Hugging Face Spaces handles traffic automatically
+      - **Scalable**: Hugging Face Spaces handles traffic automatically
 
 <br><br>
 
-12. **Optional: Hybrid deployment**. If you want to use your local MCP server with the cloud app:
-    - Install ngrok: `curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null && echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list && sudo apt update && sudo apt install ngrok`
-    - Expose your local MCP server: `ngrok http 8000`
-    - Update your Space's `app.py` to use the ngrok URL as the MCP endpoint
-
-<br><br>
 
 13. **Share your Space**:
-    - Your Space is now publicly accessible at: `https://huggingface.co/spaces/YOUR_USERNAME/ai-office-assistant`
+    - Your Space is now publicly accessible at: `https://huggingface.co/spaces/YOUR_USERNAME/aiapp`
     - Share this URL with others to demonstrate your AI application
     - Consider adding it to your portfolio or resume!
 
