@@ -1,32 +1,48 @@
 #!/usr/bin/env python3
-# rag_agent.py — now ends with an LLM-generated, human-friendly summary
-#
-# NEW FEATURES
-# ------------
-# • After tool calls succeed we invoke Llama-3 (via LangChain-Ollama) so the
-#   model writes a concise paragraph that includes:
-#       • Office name (if available) and city / country
-#       • Current weather (conditions + °F)
-#       • ONE interesting fact about the city
-# • Works even if the indexed PDF line is messy; we hand the *raw* top-hit
-#   line plus structured weather data to the LLM and let it compose.
-#
-# Prerequisites (additions)
-#   pip install langchain-ollama
-#
-# Example
-# -------
-#   Prompt:  paris marketing office
-#
-#   Top RAG hit:
-#     Paris Office 88 Champs-Élysées, Paris, France  95  9M  Marketing, Sales
-#
-#   Final summary:
-#     **Paris Office — Paris, France**  
-#     It’s currently Clear sky and 74.1 °F.  
-#     Fun fact: Paris’s Avenue des Champs-Élysées is often called “the world’s
-#     most beautiful avenue” and hosts the Tour de France finish each year.
+"""
+Lab 5: RAG-Enhanced Weather Agent (v2 with LLM Summary)
+────────────────────────────────────────────────────────────────────
+A Retrieval-Augmented Generation (RAG) agent that combines vector search
+with MCP tool calling to provide context-aware weather information.
 
+Key Components
+--------------
+1. **Vector Search (ChromaDB)**
+   - Searches local "codebase" collection for office information
+   - Uses sentence transformers for semantic similarity
+   - Finds relevant context like "Paris Office, 88 Champs-Élysées, France"
+
+2. **Location Extraction (Pattern Matching + LLM)**
+   - Extracts coordinates directly from text when available
+   - Falls back to city name extraction (City, State | City, Country)
+   - Uses MCP geocoding tool to convert city names to coordinates
+
+3. **MCP Tool Integration**
+   - get_weather(lat, lon) → temperature °C + weather conditions
+   - convert_c_to_f(c) → temperature °F
+   - geocode_location(name) → latitude/longitude coordinates
+
+4. **Error Handling**
+   - Gracefully handles MCP server errors
+   - Validates tool responses before processing
+   - Provides clear user feedback on failures
+
+5. **LLM-Enhanced Output (NEW in v2)**
+   - Uses Ollama LLM to generate friendly, context-rich summaries
+   - Includes office name, weather, and interesting city fact
+   - Produces natural language responses instead of raw data
+
+Workflow
+--------
+User query → RAG search → Location extraction → Geocoding (if needed) →
+Weather lookup via MCP → Temperature conversion → LLM summary generation
+
+Prerequisites
+-------------
+- ChromaDB populated with office data
+- MCP weather server running on localhost:8000
+- pip install sentence-transformers chromadb fastmcp langchain-ollama
+"""
 
 # ────────────────────────── standard libs ───────────────────────────
 import asyncio
@@ -42,29 +58,36 @@ from chromadb.config import Settings, DEFAULT_TENANT, DEFAULT_DATABASE
 from sentence_transformers import SentenceTransformer
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
-from langchain_ollama import ChatOllama          # NEW: local Llama 3.2
+from langchain_ollama import ChatOllama  # NEW: for LLM summary generation
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# 1.  Config / constants                                             ║
+# ║ 1.  Configuration and constants                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
-CHROMA_PATH      = Path("./chroma_db")          # where the vector DB lives
-COLLECTION_NAME  = "codebase"                   # collection inside Chroma
-EMBED_MODEL_NAME = "all-MiniLM-L6-v2"           # SBERT model for queries
-MCP_ENDPOINT     = "http://127.0.0.1:8000/mcp/" # FastMCP server
-TOP_K            = 5                            # RAG: retrieve top-5 chunks
+# Vector database settings
+CHROMA_PATH      = Path("./chroma_db")          # Persistent storage location
+COLLECTION_NAME  = "codebase"                   # Collection for office data
+EMBED_MODEL_NAME = "all-MiniLM-L6-v2"           # Sentence transformer model
+MCP_ENDPOINT     = "http://127.0.0.1:8000/mcp/" # MCP server endpoint
+TOP_K            = 5                            # Number of RAG results to retrieve
 
-# Regex patterns for lat/lon and various city formats
-COORD_RE        = re.compile(r"\b(-?\d{1,2}(?:\.\d+)?)[,\s]+(-?\d{1,3}(?:\.\d+)?)\b")
-CITY_STATE_RE   = re.compile(r"\b([A-Z][a-z]+(?: [A-Z][a-z]+)*),\s*([A-Z]{2})\b")
-CITY_COUNTRY_RE = re.compile(r"\b([A-Z][a-z]+(?: [A-Z][a-z]+)*),\s*([A-Z][a-z]{2,})\b")
-CITY_RE         = re.compile(r"\b([A-Z][a-z]+(?: [A-Z][a-z]+)*)\b")
-STOPWORDS = {"office", "hq", "center", "centre"}  # ignore tokens like “HQ”
+# Location extraction patterns - ordered by specificity
+COORD_RE        = re.compile(r"\b(-?\d{1,2}(?:\.\d+)?)[,\s]+(-?\d{1,3}(?:\.\d+)?)\b")  # lat,lon pairs
+CITY_STATE_RE   = re.compile(r"\b([A-Z][a-z]+(?: [A-Z][a-z]+)*),\s*([A-Z]{2})\b")      # "Austin, TX"
+CITY_COUNTRY_RE = re.compile(r"\b([A-Z][a-z]+(?: [A-Z][a-z]+)*),\s*([A-Z][a-z]{2,})\b") # "Paris, France"
+CITY_RE         = re.compile(r"\b([A-Z][a-z]+(?: [A-Z][a-z]+)*)\b")                     # Any capitalized word
+
+STOPWORDS = {"office", "hq", "center", "centre"}  # Words to exclude from city detection
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# 2.  Vector search helpers                                          ║
+# ║ 2.  Vector search helpers (ChromaDB integration)                 ║
 # ╚══════════════════════════════════════════════════════════════════╝
 def open_collection() -> chromadb.Collection:
-    """Return (or create) the Chroma collection."""
+    """
+    Open or create the ChromaDB collection for office data.
+
+    Returns:
+        ChromaDB collection containing embedded office information
+    """
     client = chromadb.PersistentClient(
         path=str(CHROMA_PATH),
         settings=Settings(),
@@ -73,12 +96,20 @@ def open_collection() -> chromadb.Collection:
     )
     return client.get_or_create_collection(COLLECTION_NAME)
 
+
 def rag_search(query: str,
                model: SentenceTransformer,
                coll: chromadb.Collection) -> List[str]:
     """
-    Embed the *query*, search the vector DB, and return the text of the
-    top-k chunks (empty list if collection is empty).
+    Perform semantic search on the vector database.
+
+    Args:
+        query: Natural language search query
+        model: Sentence transformer for embeddings
+        coll: ChromaDB collection to search
+
+    Returns:
+        List of top-K matching text chunks (empty if no results)
     """
     q_emb = model.encode(query).tolist()
     res = coll.query(
@@ -89,10 +120,18 @@ def rag_search(query: str,
     return res["documents"][0] if res["documents"] else []
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# 3.  Information-extraction helpers                                 ║
+# ║ 3.  Location extraction helpers (pattern matching)               ║
 # ╚══════════════════════════════════════════════════════════════════╝
+# These functions extract location information using regex patterns,
+# ordered from most specific (coordinates) to least specific (any city).
+
 def find_coords(texts: List[str]) -> Optional[Tuple[float, float]]:
-    """First valid lat/lon in the supplied texts, else None."""
+    """
+    Extract explicit latitude/longitude coordinates from text.
+
+    Returns:
+        (latitude, longitude) tuple, or None if not found
+    """
     for txt in texts:
         for m in COORD_RE.finditer(txt):
             lat, lon = map(float, m.groups())
@@ -129,39 +168,65 @@ def guess_city(texts: List[str]) -> Optional[str]:
     return None
 
 
-def geocode(name: str) -> Optional[Tuple[float, float]]:
+async def geocode_via_mcp(name: str, mcp_client: Client) -> Optional[Tuple[float, float]]:
     """
-    Ask Open-Meteo’s geocoding API for coords.
-    If “City, XX” fails, retry with just “City”.
-    """
-    url = "https://geocoding-api.open-meteo.com/v1/search"
+    Geocode a location name using the MCP server's geocoding tool.
 
-    def _lookup(n: str):
+    This delegates to the MCP server which handles retries and error handling.
+    If "City, State" format fails, automatically retries with just "City".
+
+    Args:
+        name: Location name to geocode (e.g., "Paris" or "Austin, TX")
+        mcp_client: Active MCP client connection
+
+    Returns:
+        (latitude, longitude) tuple, or None if geocoding fails
+    """
+    async def _lookup(n: str):
         try:
-            r = requests.get(url, params={"name": n, "count": 1}, timeout=10)
-            r.raise_for_status()
-            data = r.json()
-            if data.get("results"):
-                hit = data["results"][0]
-                return hit["latitude"], hit["longitude"]
-        except Exception:
-            pass
+            result = await mcp_client.call_tool("geocode_location", {"name": n})
+            geo_data = unwrap(result)
+
+            if not isinstance(geo_data, dict):
+                return None
+
+            if "error" in geo_data:
+                print(f"Geocoding error: {geo_data['error']}")
+                return None
+
+            lat = geo_data.get("latitude")
+            lon = geo_data.get("longitude")
+
+            if lat is not None and lon is not None:
+                return (lat, lon)
+
+        except Exception as e:
+            print(f"Geocoding failed: {type(e).__name__}")
+
         return None
 
-    coords = _lookup(name)
+    coords = await _lookup(name)
     if coords:
         return coords
     if "," in name:                              # retry with simpler string
-        return _lookup(name.split(",", 1)[0].strip())
+        return await _lookup(name.split(",", 1)[0].strip())
     return None
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# 4.  unwrap(): CallToolResult → plain Python                        ║
+# ║ 4.  MCP result unwrapper (handles version differences)           ║
 # ╚══════════════════════════════════════════════════════════════════╝
 def unwrap(obj):
     """
-    FastMCP returns a CallToolResult wrapper.  This helper converts *any*
-    shape used across FastMCP versions into plain dict / number / string.
+    Extract plain Python values from FastMCP result wrappers.
+
+    FastMCP returns CallToolResult objects in various formats depending on
+    version. This helper normalizes them to plain Python types (dict/number/string).
+
+    Args:
+        obj: FastMCP result object
+
+    Returns:
+        Plain Python value (dict, number, string, list, etc.)
     """
     if hasattr(obj, "structured_content") and obj.structured_content:
         return unwrap(obj.structured_content)
@@ -176,48 +241,56 @@ def unwrap(obj):
     return obj
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# 5.  Main workflow (async)                                          ║
+# ║ 5.  Main workflow orchestration (async)                          ║
 # ╚══════════════════════════════════════════════════════════════════╝
 async def run(prompt: str) -> None:
     """
-    0. User prompt ➜ vector search ➜ possible office chunk.
-    1. Extract coordinates *or* city name.
-    2. If only a city, geocode to lat/lon.
-    3. Call MCP tools: get_weather → convert_c_to_f.
-    4. Ask LLM to craft a human summary incl. interesting fact.
+    Execute the complete RAG + MCP workflow.
+
+    Workflow Steps:
+    1. Vector search → find relevant office information
+    2. Extract location (coordinates or city name)
+    3. Geocode city name if needed (via MCP)
+    4. Get weather data (via MCP)
+    5. Convert temperature to Fahrenheit (via MCP)
+    6. Generate friendly LLM summary with city fact (NEW in v2)
+
+    Args:
+        prompt: Natural language user query about weather    
     """
     embed_model = SentenceTransformer(EMBED_MODEL_NAME)
     coll        = open_collection()
 
-    # Vector search
+    # ── Step 1: Vector search for relevant context ──────────────────
     rag_hits = rag_search(prompt, embed_model, coll)
     top_hit  = rag_hits[0] if rag_hits else ""
     if top_hit:
         print("\nTop RAG hit:\n", top_hit, "\n")
 
-    # — step 1: direct coordinates? —
+    # ── Step 2: Extract location information ────────────────────────
+    # Try explicit coordinates first
     coords = find_coords([top_hit, prompt])
 
-    # — step 2: if no coords, derive city then geocode —
-    if not coords:
-        city_str = (
-            find_city_state([top_hit, prompt])
-            or find_city_country([top_hit, prompt])
-            or guess_city([top_hit, prompt])
-        )
-        if city_str:
-            print(f"No coords found; geocoding '{city_str}'.")
-            coords = geocode(city_str)
-
-    if not coords:
-        print("Could not determine latitude/longitude.\n")
-        return
-
-    lat, lon = coords
-    print(f"Using coordinates: {lat:.4f}, {lon:.4f}\n")
-
-    # — step 3: call MCP tools —
+    # ── Step 3: Geocode city name if no coordinates found ───────────
     async with Client(MCP_ENDPOINT) as mcp:
+        if not coords:
+            city_str = (
+                find_city_state([top_hit, prompt])
+                or find_city_country([top_hit, prompt])
+                or guess_city([top_hit, prompt])
+            )
+            if city_str:
+                print(f"No coords found; geocoding '{city_str}'.")
+                coords = await geocode_via_mcp(city_str, mcp)
+
+        if not coords:
+            print("Could not determine latitude/longitude.\n")
+            return
+
+        lat, lon = coords
+        print(f"Using coordinates: {lat:.4f}, {lon:.4f}\n")
+
+        # ── Step 4: Get weather via MCP ─────────────────────────────────
         try:
             w_raw = await mcp.call_tool("get_weather", {"lat": lat, "lon": lon})
         except ToolError as e:
@@ -229,57 +302,60 @@ async def run(prompt: str) -> None:
             print(f"Unexpected get_weather result: {weather}")
             return
 
+        # Check for error response from the weather service
+        if "error" in weather:
+            print(f"Weather service error: {weather['error']}")
+            return
+
         temp_c = weather.get("temperature")
         cond   = weather.get("conditions", "Unknown")
 
+        if temp_c is None:
+            print("Weather service did not return temperature data.")
+            return
+
+        # ── Step 5: Convert temperature to Fahrenheit ───────────────────
         try:
             tf_raw = await mcp.call_tool("convert_c_to_f", {"c": temp_c})
             temp_f = float(unwrap(tf_raw))
         except (ToolError, ValueError) as e:
             print(f"Temperature conversion failed: {e}")
             return
-                
-    # — Step 4: LLM-crafted final summary —─────────────────────────
-    # 1. Strip any street-address segment so we don’t reveal an exact location.
-    #    Pattern: leading digits + word chars until the first comma.
+
+    # ── Step 6: Generate LLM summary (NEW in v2) ────────────────────
+    # Strip street address from RAG hit to avoid revealing exact locations
+    # Pattern: leading digits + word chars until first comma
     safe_line = re.sub(r"\d+\s+\S+(?:\s+\S+)*,?\s*", "", top_hit, count=1).strip()
 
-    # 2. Pull what looks like the city/country piece (everything *after* the
-    #    first comma), just for the model’s context.
+    # Extract city/country portion (everything after first comma)
     city_part = ", ".join(top_hit.split(",", 2)[1:]).strip() or "N/A"
 
     llm = ChatOllama(model="llama3.2", temperature=0.2)
 
     system_msg = (
-        "You are a helpful business assistant. "
-        "It is safe to summarise this public-facing office information. "
-        "Do NOT reproduce any street address—only office name, city, "
-        "state, or country."
+        "You are a helpful business assistant. Provide a concise weather summary."
     )
 
     user_msg = (
-        "Using the details below, write **three short sentences** (≤60 words):\n"
+        f"Create a weather summary:\n"
         f"• Office: {safe_line}\n"
-        f"• Location context: {city_part}\n"
+        f"• Location: {city_part}\n"
         f"• Weather: {cond}, {temp_f:.1f} °F\n\n"
-        "Sentence-1  → Office name + city/country.\n"
-        "Sentence-2  → Current weather.\n"
-        "Sentence-3  → One interesting fact about the city "
-        "(history, culture, or geography).\n"
+        "Format: Office name + location, current weather, interesting fact about the city."
     )
 
-    summary = llm.invoke(
-        [{"role": "system", "content": system_msg},
-         {"role": "user",   "content": user_msg}]
-    ).content.strip()
+    summary = llm.invoke([
+        {"role": "system", "content": system_msg},
+        {"role": "user", "content": user_msg}
+    ]).content.strip()
 
-    print(summary + "\n")
+    print(f"\n{summary}\n")
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# 6.  Command-line REPL                                              ║
+# ║ 6.  Interactive command-line interface                           ║
 # ╚══════════════════════════════════════════════════════════════════╝
 if __name__ == "__main__":
-    print("Office-aware weather agent. Type 'exit' to quit.\n")
+    print("Office-aware weather agent (v2 with LLM summaries). Type 'exit' to quit.\n")
     while True:
         prompt = input("Prompt: ").strip()
         if prompt.lower() == "exit":
