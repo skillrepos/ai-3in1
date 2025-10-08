@@ -148,21 +148,45 @@ try:
         pdf_available = False
         print("   ⚠️  pdfplumber not installed - skipping PDF data")
 
-    # Paths
-    MCP_CHROMA_PATH = Path("./mcp_chroma_db")
+    # Paths - use environment variable or /tmp if current directory not writable
+    import os
+    import tempfile
+
+    # Check for environment variable first (set by Docker)
+    chroma_path_env = os.getenv("CHROMA_DB_PATH")
+    if chroma_path_env:
+        MCP_CHROMA_PATH = Path(chroma_path_env)
+        MCP_CHROMA_PATH.mkdir(parents=True, exist_ok=True)
+        print(f"   ℹ️  Using ChromaDB path from env: {MCP_CHROMA_PATH}")
+    else:
+        # Try to use local directory first, fall back to /tmp if not writable
+        try:
+            MCP_CHROMA_PATH = Path("./mcp_chroma_db")
+            MCP_CHROMA_PATH.mkdir(parents=True, exist_ok=True)
+            # Test if writable
+            test_file = MCP_CHROMA_PATH / ".write_test"
+            test_file.touch()
+            test_file.unlink()
+        except (PermissionError, OSError):
+            # Fall back to /tmp for Docker/HF Spaces
+            MCP_CHROMA_PATH = Path(tempfile.gettempdir()) / "mcp_chroma_db"
+            MCP_CHROMA_PATH.mkdir(parents=True, exist_ok=True)
+            print(f"   ⚠️  Using temp directory for ChromaDB: {MCP_CHROMA_PATH}")
+
     OFFICE_CSV = Path("./data/offices.csv")
     OFFICE_PDF = Path("./data/offices.pdf")
 
     # Check if vector DB already populated
+    populate_needed = False
     if MCP_CHROMA_PATH.exists():
-        client = chromadb.PersistentClient(
-            path=str(MCP_CHROMA_PATH),
-            settings=Settings(),
-            tenant=DEFAULT_TENANT,
-            database=DEFAULT_DATABASE,
-        )
-
         try:
+            client = chromadb.PersistentClient(
+                path=str(MCP_CHROMA_PATH),
+                settings=Settings(),
+                tenant=DEFAULT_TENANT,
+                database=DEFAULT_DATABASE,
+            )
+
             locations = client.get_collection("office_locations")
             analytics = client.get_collection("office_analytics")
 
@@ -172,88 +196,96 @@ try:
                 print(f"   • Analytics: {analytics.count()} documents")
                 print(f"   • Path: {MCP_CHROMA_PATH}")
             else:
-                raise ValueError("Collections exist but are empty")
+                print(f"   • MCP vector DB exists but is empty, repopulating...")
+                populate_needed = True
 
-        except Exception:
+        except Exception as e:
             # Collections don't exist or are empty, populate them
-            print(f"   • Creating MCP vector database...")
+            print(f"   • Creating MCP vector database... ({str(e)[:50]})")
             populate_needed = True
     else:
         print(f"   • Creating MCP vector database...")
         populate_needed = True
 
     # Populate if needed
-    if 'populate_needed' in locals() and populate_needed:
+    if populate_needed:
         # Initialize
-        client = chromadb.PersistentClient(
-            path=str(MCP_CHROMA_PATH),
-            settings=Settings(),
-            tenant=DEFAULT_TENANT,
-            database=DEFAULT_DATABASE,
-        )
-        locations_coll = client.get_or_create_collection("office_locations")
-        analytics_coll = client.get_or_create_collection("office_analytics")
+        try:
+            client = chromadb.PersistentClient(
+                path=str(MCP_CHROMA_PATH),
+                settings=Settings(),
+                tenant=DEFAULT_TENANT,
+                database=DEFAULT_DATABASE,
+            )
+            locations_coll = client.get_or_create_collection("office_locations")
+            analytics_coll = client.get_or_create_collection("office_analytics")
+        except Exception as e:
+            print(f"   ❌ Failed to create ChromaDB client: {e}")
+            print(f"   ⚠️  Skipping vector DB warmup")
+            populate_needed = False  # Skip population if client creation fails
 
-        # Use already-loaded embedding model
-        print(f"   • Using pre-loaded embedding model...")
+        # Only continue if client was created successfully
+        if populate_needed:
+            # Use already-loaded embedding model
+            print(f"   • Using pre-loaded embedding model...")
 
-        # Populate locations from PDF
-        if pdf_available and OFFICE_PDF.exists():
-            print(f"   • Reading {OFFICE_PDF.name}...")
-            with pdfplumber.open(OFFICE_PDF) as pdf:
-                lines = []
-                for page in pdf.pages:
-                    text = page.extract_text() or ""
-                    for line in text.split('\n'):
-                        line = line.strip()
-                        if line:
-                            lines.append(line)
-
-            print(f"   • Embedding {len(lines)} location documents...")
-            for idx, line in enumerate(lines):
-                vector = embed_model.encode(line).tolist()
-                locations_coll.add(
-                    ids=[f"pdf-{idx}"],
-                    embeddings=[vector],
-                    documents=[line],
-                    metadatas=[{"source": "offices.pdf", "line": idx}],
-                )
-            print(f"   ✓ Populated {len(lines)} location documents")
-        else:
-            if not pdf_available:
-                print(f"   ⚠️  Skipping PDF (pdfplumber not installed)")
-            elif not OFFICE_PDF.exists():
-                print(f"   ⚠️  Skipping PDF ({OFFICE_PDF} not found)")
-
-        # Populate analytics from CSV
-        if OFFICE_CSV.exists():
-            print(f"   • Reading {OFFICE_CSV.name}...")
-            df = pd.read_csv(OFFICE_CSV)
-
-            print(f"   • Embedding {len(df)} analytics documents...")
-            for idx, row in df.iterrows():
-                text = (f"{row['city']} office with {row['employees']} employees "
-                       f"and ${row['revenue_million']}M revenue, opened in {row['opened_year']}")
-                vector = embed_model.encode(text).tolist()
-                analytics_coll.add(
-                    ids=[f"csv-{idx}"],
-                    embeddings=[vector],
-                    documents=[text],
-                    metadatas={
-                        "source": "offices.csv",
-                        "city": row['city'],
-                        "employees": int(row['employees']),
-                        "revenue_million": float(row['revenue_million']),
-                        "opened_year": int(row['opened_year'])
-                    },
-                )
-            print(f"   ✓ Populated {len(df)} analytics documents")
-        else:
-            print(f"   ⚠️  Skipping CSV ({OFFICE_CSV} not found)")
-
-        elapsed = time.time() - start
-        print(f"   ✓ MCP vector DB populated successfully ({elapsed:.1f}s)")
-        print(f"   • Path: {MCP_CHROMA_PATH}")
+            # Populate locations from PDF
+            if pdf_available and OFFICE_PDF.exists():
+                print(f"   • Reading {OFFICE_PDF.name}...")
+                with pdfplumber.open(OFFICE_PDF) as pdf:
+                    lines = []
+                    for page in pdf.pages:
+                        text = page.extract_text() or ""
+                        for line in text.split('\n'):
+                            line = line.strip()
+                            if line:
+                                lines.append(line)
+    
+                print(f"   • Embedding {len(lines)} location documents...")
+                for idx, line in enumerate(lines):
+                    vector = embed_model.encode(line).tolist()
+                    locations_coll.add(
+                        ids=[f"pdf-{idx}"],
+                        embeddings=[vector],
+                        documents=[line],
+                        metadatas=[{"source": "offices.pdf", "line": idx}],
+                    )
+                print(f"   ✓ Populated {len(lines)} location documents")
+            else:
+                if not pdf_available:
+                    print(f"   ⚠️  Skipping PDF (pdfplumber not installed)")
+                elif not OFFICE_PDF.exists():
+                    print(f"   ⚠️  Skipping PDF ({OFFICE_PDF} not found)")
+    
+            # Populate analytics from CSV
+            if OFFICE_CSV.exists():
+                print(f"   • Reading {OFFICE_CSV.name}...")
+                df = pd.read_csv(OFFICE_CSV)
+    
+                print(f"   • Embedding {len(df)} analytics documents...")
+                for idx, row in df.iterrows():
+                    text = (f"{row['city']} office with {row['employees']} employees "
+                           f"and ${row['revenue_million']}M revenue, opened in {row['opened_year']}")
+                    vector = embed_model.encode(text).tolist()
+                    analytics_coll.add(
+                        ids=[f"csv-{idx}"],
+                        embeddings=[vector],
+                        documents=[text],
+                        metadatas={
+                            "source": "offices.csv",
+                            "city": row['city'],
+                            "employees": int(row['employees']),
+                            "revenue_million": float(row['revenue_million']),
+                            "opened_year": int(row['opened_year'])
+                        },
+                    )
+                print(f"   ✓ Populated {len(df)} analytics documents")
+            else:
+                print(f"   ⚠️  Skipping CSV ({OFFICE_CSV} not found)")
+    
+            elapsed = time.time() - start
+            print(f"   ✓ MCP vector DB populated successfully ({elapsed:.1f}s)")
+            print(f"   • Path: {MCP_CHROMA_PATH}")
 
 except ImportError as e:
     print(f"   ⚠️  Skipping MCP vector DB (missing dependencies)")

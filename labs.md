@@ -1,7 +1,8 @@
 # AI for App Development
 ## Building AI Apps that leverage agents, MCP, and RAG
 ## Session labs 
-## Revision .0 - 11/08/25
+## Revision 2.0 - 11/08/25
+## (c) 2025 Tech Skills Transformations
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -95,7 +96,7 @@ You should see a simple script that:
 
 <br><br>
 
-11. Now you can run the script:
+10. Now you can run the script with the command below. 
 
 ```
 python simple_ollama.py
@@ -103,11 +104,20 @@ python simple_ollama.py
 
 <br><br>
 
-12. When prompted, enter a question like "What is the capital of France?" and press Enter. You should see the model's response printed to the terminal. This demonstrates how easy it is to integrate Ollama into a Python application. Feel free to try other prompts. 
+11. When prompted, enter a question like "What is the capital of France?" and press Enter. You should see the model's response printed to the terminal. This demonstrates how easy it is to integrate Ollama into a Python application. Feel free to try other prompts. 
+
+
+12. In preparation for the remaining labs, let's get the model access approaches "warmed up". Start the command below and just leave it running while we continue (if it doesn't finish quickly).
+
+```
+python warmup_models.py
+```
+
 <p align="center">
 **[END OF LAB]**
 </p>
 </br></br>
+
 
 **Lab 2 - Creating a simple agent**
 
@@ -799,46 +809,6 @@ hf repo create --repo-type space --space_sdk docker aiapp
 
 <br><br>
 
-7. **Create a new README.md** for the space configuration. Do this from the *aiapp* directory. You can use the command below.
-   ```
-   cat > README.md << 'EOF'
-   ---
-   title: AI Office Assistant
-   emoji: 🏢
-   colorFrom: blue
-   colorTo: green
-   sdk: streamlit
-   sdk_version: 1.40.0
-   app_file: app.py
-   pinned: false
-   license: mit
-   ---
-
-   # AI Office Assistant 🏢
-
-   An intelligent office data analysis tool powered by classification-based and traditional RAG (Retrieval-Augmented Generation).
-
-   ## Features
-
-   - **Natural Language Queries**: Ask questions in plain English
-   - **Intelligent Classification**: Automatically determines your intent
-   - **Office Analytics**: Revenue, employee, and efficiency analysis
-
-   ## Example Queries
-
-   - "Which office has the highest revenue?"
-   - "Tell me about the Chicago office"
-   - "Which office has the most employees?"
-   - "Show me efficiency analysis"
-   - "What's the average revenue across all offices?"
-
-   Built with Streamlit and advanced AI techniques.
-
-   EOF
-   ```
-
-<br><br>
-
 8. Push the changes back to the Hugging Face repo. **Notice there is a required "." at the end of the command.**
    ```
    hf upload --repo-type space aiapp .
@@ -870,23 +840,16 @@ hf repo create --repo-type space --space_sdk docker aiapp
 <br><br>
 
 
-13. **Share your Space**:
+12. **Share your Space**:
     - Your Space is now publicly accessible at: `https://huggingface.co/spaces/YOUR_USERNAME/aiapp`
-    - Share this URL with others to demonstrate your AI application
-    - Consider adding it to your portfolio or resume!
+    - You can share this URL with others to demonstrate your AI application
+
 
 <br><br>
 
-14. **Advanced features to explore**:
-    - Add user authentication for private deployments
-    - Implement query analytics and logging
-    - Add data visualization with charts and graphs
-    - Create custom themes and branding
-    - Set up automatic deployment from GitHub
 
-<br><br>
 
-**Congratulations!** You've successfully deployed an AI application with sophisticated classification capabilities to the cloud. Your application demonstrates advanced concepts like canonical query classification, fallback architectures, and user-friendly AI interfaces.
+**Congratulations!** You've successfully deployed an AI application with sophisticated classification capabilities on the web. Your application demonstrates advanced concepts like canonical query classification, use of RAG and MCP protocols and user-friendly AI interfaces.
 
 <p align="center">
 **[END OF LAB]**
@@ -894,5 +857,5 @@ hf repo create --repo-type space --space_sdk docker aiapp
 </br></br>
 
 <p align="center">
-**THANKS!**
+**(c) 2025 Tech Skills Transformations and Brent C. Laster. All rights reserved.**
 </p>
