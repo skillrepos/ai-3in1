@@ -1,48 +1,39 @@
 #!/usr/bin/env python3
 """
-RAG Agent with MCP Classification & Prompt Templates
-────────────────────────────────────────────────────
-COMPLETED - Lab 7: Building the Classification RAG Agent
+RAG Agent with MCP Classification & Vector Search
+──────────────────────────────────────────────────
 
-This agent uses a sophisticated 4-step process:
-1. CLASSIFICATION: Ask MCP server to determine user intent → canonical query
-2. TEMPLATE: Get structured prompt template from MCP server
-3. DATA: Retrieve required data from MCP server
-4. EXECUTION: Run LLM locally with template + data
+This agent uses MCP server for ALL data access (centralized data layer):
+
+CANONICAL QUERY WORKFLOW (for structured analytics):
+
+
+WEATHER WORKFLOW (for location-based queries):
+
+
+ARCHITECTURE:
+
+DATA SOURCES (all accessed via MCP):
+• offices.csv → Structured analytics + Vector embeddings in MCP's ChromaDB
+• offices.pdf → Location data + Vector embeddings in MCP's ChromaDB
 """
 
 import asyncio
 import json
 import os
 import re
-import shutil
-from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
-import requests
-import chromadb
-from chromadb.config import Settings, DEFAULT_TENANT, DEFAULT_DATABASE
-from sentence_transformers import SentenceTransformer
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 from langchain_ollama import ChatOllama
 
-try:
-    import pdfplumber
-except ImportError:
-    pdfplumber = None
-
 # ╔══════════════════════════════════════════════════════════════════╗
 # 1. Configuration                                                   ║
 # ╚══════════════════════════════════════════════════════════════════╝
-CHROMA_PATH      = Path("./chroma_db")
-COLLECTION_NAME  = "codebase"
-EMBED_MODEL_NAME = "all-MiniLM-L6-v2"
-MCP_ENDPOINT     = "http://127.0.0.1:8000/mcp/"
-TOP_K            = 5
-MODEL            = os.getenv("OLLAMA_MODEL", "llama3.2")
-PDF_DIR          = Path("./data")
-LINE_RE          = re.compile(r"[^\S\r\n]*\r?\n[^\S\r\n]*")
+MCP_ENDPOINT = "http://127.0.0.1:8000/mcp/"
+TOP_K        = 5
+MODEL        = os.getenv("OLLAMA_MODEL", "llama3.2")
 
 # Regex patterns for location extraction
 COORD_RE        = re.compile(r"\b(-?\d{1,2}(?:\.\d+)?)[,\s]+(-?\d{1,3}(?:\.\d+)?)\b")
@@ -51,82 +42,9 @@ CITY_COUNTRY_RE = re.compile(r"\b([A-Z][a-z]+(?: [A-Z][a-z]+)*),\s*([A-Z][a-z]{2
 CITY_RE         = re.compile(r"\b([A-Z][a-z]+(?: [A-Z][a-z]+)*)\b")
 STOPWORDS = {"office", "hq", "center", "centre"}
 
-# ╔══════════════════════════════════════════════════════════════════╗
-# 2. Vector search helpers (from previous labs)                      ║
-# ╚══════════════════════════════════════════════════════════════════╝
-def open_collection() -> chromadb.Collection:
-    """Return (or create) the Chroma collection."""
-    client = chromadb.PersistentClient(
-        path=str(CHROMA_PATH),
-        settings=Settings(),
-        tenant=DEFAULT_TENANT,
-        database=DEFAULT_DATABASE,
-    )
-    return client.get_or_create_collection(COLLECTION_NAME)
-
-def rag_search(query: str, model: SentenceTransformer, coll: chromadb.Collection) -> List[str]:
-    """Embed query and search vector DB."""
-    q_emb = model.encode(query).tolist()
-    res = coll.query(query_embeddings=[q_emb], n_results=TOP_K, include=["documents"])
-    return res["documents"][0] if res["documents"] else []
-
-def extract_lines_from_pdf(path: Path) -> List[str]:
-    """Extract all non-blank lines from a PDF file."""
-    if not pdfplumber:
-        raise ImportError("pdfplumber is required for PDF ingestion. Install it with: pip install pdfplumber")
-
-    lines: List[str] = []
-    with pdfplumber.open(path) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text() or ""
-            for raw_line in LINE_RE.split(text):
-                line = raw_line.strip()
-                if line:
-                    lines.append(line)
-    return lines
-
-def ensure_chromadb_populated(embed_model: SentenceTransformer, coll: chromadb.Collection) -> None:
-    """
-    Ensure ChromaDB is populated with office data from PDF.
-    If the collection is empty, populate it from data/offices.pdf.
-    """
-    # Check if collection already has data
-    try:
-        count = coll.count()
-        if count > 0:
-            print(f"ChromaDB already populated with {count} documents")
-            return
-    except Exception:
-        pass
-
-    # Collection is empty, populate it
-    print("ChromaDB is empty, populating from offices.pdf...")
-
-    pdf_path = PDF_DIR / "offices.pdf"
-    if not pdf_path.exists():
-        print(f"WARNING: {pdf_path} not found. RAG queries for office locations may not work.")
-        return
-
-    try:
-        lines = extract_lines_from_pdf(pdf_path)
-        print(f"Extracted {len(lines)} lines from {pdf_path.name}")
-
-        # Embed and store each line
-        for idx, line in enumerate(lines):
-            vector = embed_model.encode(line).tolist()
-            coll.add(
-                ids=[f"{pdf_path.name}-{idx}"],
-                embeddings=[vector],
-                documents=[line],
-                metadatas=[{"path": str(pdf_path), "chunk_index": idx}],
-            )
-
-        print(f"✅ ChromaDB populated with {len(lines)} documents from {pdf_path.name}")
-    except Exception as e:
-        print(f"ERROR: Failed to populate ChromaDB: {e}")
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# 3. Location extraction helpers (from previous labs)                ║
+# 2. Location extraction helpers (from previous labs)                ║
 # ╚══════════════════════════════════════════════════════════════════╝
 def find_coords(texts: List[str]) -> Optional[Tuple[float, float]]:
     for txt in texts:
@@ -202,27 +120,39 @@ def guess_city(texts: List[str]) -> Optional[str]:
                     
     return None
 
-def geocode(name: str) -> Optional[Tuple[float, float]]:
-    """Geocode city name to coordinates."""
-    url = "https://geocoding-api.open-meteo.com/v1/search"
-    
-    def _lookup(n: str):
+async def geocode_via_mcp(name: str, mcp_client: Client) -> Optional[Tuple[float, float]]:
+    """
+    Use the MCP server's geocoding tool to get coordinates.
+    If "City, XX" fails, retry with just "City".
+    """
+    async def _lookup(n: str):
         try:
-            r = requests.get(url, params={"name": n, "count": 1}, timeout=10)
-            r.raise_for_status()
-            data = r.json()
-            if data.get("results"):
-                hit = data["results"][0]
-                return hit["latitude"], hit["longitude"]
-        except Exception:
-            pass
+            result = await mcp_client.call_tool("geocode_location", {"name": n})
+            geo_data = unwrap(result)
+
+            if not isinstance(geo_data, dict):
+                return None
+
+            if "error" in geo_data:
+                print(f"Geocoding error: {geo_data['error']}")
+                return None
+
+            lat = geo_data.get("latitude")
+            lon = geo_data.get("longitude")
+
+            if lat is not None and lon is not None:
+                return (lat, lon)
+
+        except Exception as e:
+            print(f"Geocoding failed: {type(e).__name__}")
+
         return None
 
-    coords = _lookup(name)
+    coords = await _lookup(name)
     if coords:
         return coords
-    if "," in name:
-        return _lookup(name.split(",", 1)[0].strip())
+    if "," in name:                              # retry with simpler string
+        return await _lookup(name.split(",", 1)[0].strip())
     return None
 
 def unwrap(obj):
@@ -247,17 +177,13 @@ def unwrap(obj):
     return obj
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# 4. Classification-Based Canonical Query Handler                    ║
+# 3. Classification-Based Canonical Query Handler                    ║
 # ╚══════════════════════════════════════════════════════════════════╝
 async def handle_canonical_query_with_classification(user_query: str) -> str:
-    """
-    
-    """
     async with Client(MCP_ENDPOINT) as mcp:
         try:
-            # Step 1: Classify canonical query from user input
-            print("[1/4] Classifying canonical query...")
-       
+            print("[1/4] Classifying canonical query...")           
+            classification = unwrap(classify_result)
 
             # Debug: Check what we got back
             if not isinstance(classification, dict):
@@ -266,26 +192,44 @@ async def handle_canonical_query_with_classification(user_query: str) -> str:
             if not classification.get("suggested_query"):
                 return f"Sorry, I couldn't determine how to analyze: '{user_query}'"
 
-       
+            suggested_query = classification["suggested_query"]
+            confidence = classification["confidence"]
             
             print(f"[Result] Suggested query: {suggested_query} (confidence: {confidence:.2f})")
             
-            # Step 2: Extract parameters if needed
             parameters = {}
             
             # Handle parameterized queries
             if suggested_query == "growth_analysis":
-            
+                # Extract year from user query
+                year_match = re.search(r'\b(19|20)\d{2}\b', user_query)
+                if year_match:
+                    parameters["year_threshold"] = int(year_match.group())
+                else:
+                    parameters["year_threshold"] = 2014  # default
             
             elif suggested_query == "office_profile":
-               
+                # Extract city name - avoid question words
+                user_lower = user_query.lower()
+                excluded_words = {"office", "tell", "about", "the", "which", "what", "where", "how", "when", "why", "who", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by"}
+                
+                # Look for actual city names in the query
+                for word in user_query.split():
+                    clean_word = word.strip('.,!?').title()
+                    if (len(clean_word) > 2 and 
+                        clean_word.lower() not in excluded_words and
+                        clean_word.isalpha()):
+                        parameters["city"] = clean_word
+                        break
+                
                 if "city" not in parameters:
                     return "Please specify which office you'd like to know about (e.g., 'Tell me about the Chicago office')."
             
-            # Step 3: Validate parameters
             if parameters:
                 print(f"Using parameters: {parameters}")
- 
+                validation_result = await mcp.call_tool("validate_query_parameters", {
+                    "query_name": suggested_query,
+                    "parameters": parameters
                 })
                 validation = unwrap(validation_result)
                 
@@ -294,7 +238,6 @@ async def handle_canonical_query_with_classification(user_query: str) -> str:
                     if missing:
                         return f"Missing required parameters: {', '.join(missing)}"
             
-            # Step 4: Get prompt template
             print("[2/4] Getting prompt template...")
             template_args = {"query_name": suggested_query}
             if "city" in parameters:
@@ -302,16 +245,17 @@ async def handle_canonical_query_with_classification(user_query: str) -> str:
             if "year_threshold" in parameters:
                 template_args["year_threshold"] = parameters["year_threshold"]
                 
- 
+            template_info = unwrap(template_result)
             
             if "error" in template_info:
                 return f"Template error: {template_info['error']}"
             
- 
+            template = template_info["template"]
+            data_requirements = template_info["data_requirements"]
             
-            # Step 5: Get required data
-            print(f"[3/4] Fetching data: {data_requirements}")
- 
+            print(f"[3/4] Fetching data: {data_requirements}") 
+                "columns": data_requirements
+            })
             data_info = unwrap(data_result)
             
             if "error" in data_info:
@@ -319,17 +263,17 @@ async def handle_canonical_query_with_classification(user_query: str) -> str:
             
             office_data = data_info["data"]
             
-            # Step 6: Execute LLM with template and data
             print("[4/4] Executing LLM with template...")
             
             # Format template with data
- 
+            formatted_prompt = template.format(data=json.dumps(office_data, indent=2))
+            
             print(f"📄 Data count: {len(office_data)} records")
             print(f"📄 Prompt length: {len(formatted_prompt)} characters")
             
             try:
                 # Use more specific LLM settings with fallback
-
+                result = response.content.strip()
                 print(f"✅ LLM response received ({len(result)} chars)")
                 return result
                 
@@ -337,7 +281,7 @@ async def handle_canonical_query_with_classification(user_query: str) -> str:
                 print(f"❌ LLM error: {llm_error}")
                 print("🔄 Using calculated fallback...")
                 # Fallback: provide a simple calculation-based response
-                if suggested_query == "employee_analysis":
+
                     max_emp = max(office_data, key=lambda x: x['employees'])
                     total_emp = sum(x['employees'] for x in office_data)
                     avg_emp = total_emp / len(office_data)
@@ -346,7 +290,7 @@ async def handle_canonical_query_with_classification(user_query: str) -> str:
                            f"2. Total employees: {total_emp}\n"
                            f"3. Average per office: {avg_emp:.1f}\n"
                            f"4. Distribution: {len(office_data)} offices analyzed")
-                elif suggested_query == "revenue_stats":
+
                     # Find offices with highest/lowest revenue
                     max_office = max(office_data, key=lambda x: x['revenue_million'])
                     min_office = min(office_data, key=lambda x: x['revenue_million'])
@@ -367,72 +311,68 @@ async def handle_canonical_query_with_classification(user_query: str) -> str:
             return f"Unexpected error: {e}"
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# 5. Weather workflow (from previous labs)                           ║
+# 4. Weather workflow using MCP Vector Search                        ║
 # ╚══════════════════════════════════════════════════════════════════╝
 async def handle_weather_query(prompt: str) -> str:
-    """Original weather workflow using RAG + MCP."""
-    embed_model = SentenceTransformer(EMBED_MODEL_NAME)
-    coll = open_collection()
-
-    # Ensure ChromaDB is populated with office data
-    ensure_chromadb_populated(embed_model, coll)
-
-    # Vector search
-    rag_hits = rag_search(prompt, embed_model, coll)
-    top_hit = rag_hits[0] if rag_hits else ""
-    if top_hit:
-        print(f"\nTop RAG hit: {top_hit[:100]}...\n")
-
-    # Extract coordinates
-    coords = find_coords([top_hit, prompt])
-    if not coords:
-        city_str = (
-            find_city_state([top_hit, prompt])
-            or find_city_country([top_hit, prompt])
-            or guess_city([top_hit, prompt])
-        )
-        if city_str:
-            print(f"Geocoding '{city_str}'...")
-            coords = geocode(city_str)
-
-    if not coords:
-        return "Could not determine location for weather lookup."
-
-    lat, lon = coords
-    print(f"Using coordinates: {lat:.4f}, {lon:.4f}")
-
-    # Get weather via MCP
+    """
+    
+    """
     async with Client(MCP_ENDPOINT) as mcp:
+        print(f"Searching for office location: '{prompt}'")
+        try:
+            search_data = unwrap(search_result)
+
+            if "error" in search_data:
+                return f"Error searching for location: {search_data['error']}"
+
+            matches = search_data.get("matches", [])
+            if not matches:
+                return f"Could not find any office matching '{prompt}'. Try being more specific."
+
+            top_hit = matches[0]["document"]
+            print(f"\n📍 Top RAG hit: {top_hit[:100]}...\n")
+
+        except Exception as e:
+            return f"Failed to search for location: {e}"       
+
+        if not coords:
+            return "Could not determine location for weather lookup."
+
+        lat, lon = coords
+        print(f"Using coordinates: {lat:.4f}, {lon:.4f}")
         try:
             w_raw = await mcp.call_tool("get_weather", {"lat": lat, "lon": lon})
             weather = unwrap(w_raw)
-            
+
             # Handle case where weather might be unwrapped too much
             if isinstance(weather, (int, float)):
                 return f"Invalid weather data format received: {weather}"
-            
+
             if not isinstance(weather, dict):
                 return f"Weather data is not in expected format: {type(weather)}"
-            
+
+            # Check for error response from the weather service
+            if "error" in weather:
+                return f"Weather service error: {weather['error']}"
+
             temp_c = weather.get("temperature")
             cond = weather.get("conditions", "Unknown")
-            
+
             if temp_c is None:
                 return "Temperature data not available from weather service."
-            
-            tf_raw = await mcp.call_tool("convert_c_to_f", {"c": temp_c})
+
             temp_f = float(unwrap(tf_raw))
-            
+
             # Generate summary
             safe_line = re.sub(r"\d+\s+\S+(?:\s+\S+)*,?\s*", "", top_hit, count=1).strip()
             city_part = ", ".join(top_hit.split(",", 2)[1:]).strip() or "N/A"
-            
+
             llm = ChatOllama(model=MODEL, temperature=0.2)
-            
+
             system_msg = (
                 "You are a helpful business assistant. Provide a concise weather summary."
             )
-            
+
             user_msg = (
                 f"Create a weather summary:\n"
                 f"• Office: {safe_line}\n"
@@ -440,14 +380,14 @@ async def handle_weather_query(prompt: str) -> str:
                 f"• Weather: {cond}, {temp_f:.1f} °F\n\n"
                 "Format: Office name + location, current weather, interesting fact about the city."
             )
-            
+
             summary = llm.invoke([
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": user_msg}
             ]).content.strip()
-            
+
             return summary
-            
+
         except ToolError as e:
             return f"Weather error: {e}"
 
@@ -456,20 +396,13 @@ async def handle_weather_query(prompt: str) -> str:
 # ╚══════════════════════════════════════════════════════════════════╝
 async def process_query(user_query: str) -> str:
     """
-    Route query to appropriate handler based on content.
-    
-    Uses simple heuristics to determine if query is:
-    - Weather-related (use RAG workflow)
-    - Data analysis (use classification workflow)
     """
     user_lower = user_query.lower()
     
-    # Weather-related keywords
-    weather_keywords = ["weather", "temperature", "forecast", "conditions", "climate"]
-   
+    # Weather-related keywords 
     
     # Data analysis keywords
- 
+
     # Default to classification for ambiguous queries
     print("[INFO] Ambiguous query, trying classification workflow...")
     return await handle_canonical_query_with_classification(user_query)
@@ -500,9 +433,33 @@ async def demo_classification_workflow():
         print()
 
 if __name__ == "__main__":
-    print("RAG Agent with MCP Classification & Prompt Templates")
-    print("Make sure mcp_server_classification.py is running first!")
-    print("Type 'exit' to quit, 'demo' for sample queries.\n")
+    print("=" * 70)
+    print("RAG Agent with MCP-Centric Architecture")
+    print("=" * 70)
+    print("\nArchitecture:")
+    print("  🔹 MCP Server = Data Layer")
+    print("     - Owns vector database (ChromaDB)")
+    print("     - Manages embeddings for PDF + CSV")
+    print("     - Provides semantic search tools")
+    print("  🔹 RAG Agent = Orchestration Layer")
+    print("     - Routes queries to appropriate workflows")
+    print("     - Executes LLM with MCP data")
+    print("     - NO local file reading or embeddings")
+    print("\nData Sources (all via MCP):")
+    print("  • PDF (locations) → Vector search")
+    print("  • CSV (analytics) → Structured queries + Vector search")
+    print("\nPrerequisites:")
+    print("  ⚠️  MCP server MUST be running first!")
+    print("     Run: python labs/common/lab6_mcp_server_solution.txt")
+    print("\nCommands:")
+    print("  • Type 'exit' to quit")
+    print("  • Type 'demo' for sample queries")
+    print("\nExample Queries:")
+    print("  🌤️  Weather: 'What is the weather at HQ?'")
+    print("  📊 Analytics: 'Which office has the most employees?'")
+    print("  🔍 Semantic: 'Show me offices with high revenue'")
+    print("=" * 70)
+    print()
     
     while True:
         user_input = input("Query: ").strip()

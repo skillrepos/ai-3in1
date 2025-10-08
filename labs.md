@@ -476,7 +476,7 @@ python mcp_server_classification.py
 
 <br><br>
 
-6. The server should start and show the available tool categories. (Scroll back up to the start of the output.) You'll see it provides weather tools (from previous labs) plus the new classification, template, data, and validation tools.
+6. The server should start and show the available tool categories. (Scroll back up to the start of the output.) You'll see it provides weather tools (from previous labs) plus the new classification, template, data, and validation tools. **This will take awhile to load everything and startup.**
 
 
 ![Running the MCP server](./images/aiapps8.png?raw=true "Running the MCP server") 

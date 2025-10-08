@@ -1,48 +1,48 @@
 #!/usr/bin/env python3
 """
-RAG Agent with MCP Classification & Prompt Templates
-────────────────────────────────────────────────────
-COMPLETED - Lab 7: Building the Classification RAG Agent
+RAG Agent with MCP Classification & Vector Search
+──────────────────────────────────────────────────
 
-This agent uses a sophisticated 4-step process:
+This agent uses MCP server for ALL data access (centralized data layer):
+
+CANONICAL QUERY WORKFLOW (for structured analytics):
 1. CLASSIFICATION: Ask MCP server to determine user intent → canonical query
 2. TEMPLATE: Get structured prompt template from MCP server
-3. DATA: Retrieve required data from MCP server
+3. DATA: Retrieve required data from MCP server (CSV analytics data)
 4. EXECUTION: Run LLM locally with template + data
+
+WEATHER WORKFLOW (for location-based queries):
+1. RAG SEARCH: Use MCP server's vector_search_locations for semantic matching
+2. GEOCODING: Extract coordinates or use MCP to geocode city names
+3. WEATHER: Get weather data via MCP server
+4. RESPONSE: Generate weather summary with LLM
+
+ARCHITECTURE:
+• MCP Server = Data Layer (owns vector DB, raw files, embeddings)
+• RAG Agent = Orchestration Layer (routing, LLM execution, business logic)
+• All data access goes through MCP tools (no direct file reading by agent)
+
+DATA SOURCES (all accessed via MCP):
+• offices.csv → Structured analytics + Vector embeddings in MCP's ChromaDB
+• offices.pdf → Location data + Vector embeddings in MCP's ChromaDB
 """
 
 import asyncio
 import json
 import os
 import re
-import shutil
-from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
-import requests
-import chromadb
-from chromadb.config import Settings, DEFAULT_TENANT, DEFAULT_DATABASE
-from sentence_transformers import SentenceTransformer
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 from langchain_ollama import ChatOllama
 
-try:
-    import pdfplumber
-except ImportError:
-    pdfplumber = None
-
 # ╔══════════════════════════════════════════════════════════════════╗
 # 1. Configuration                                                   ║
 # ╚══════════════════════════════════════════════════════════════════╝
-CHROMA_PATH      = Path("./chroma_db")
-COLLECTION_NAME  = "codebase"
-EMBED_MODEL_NAME = "all-MiniLM-L6-v2"
-MCP_ENDPOINT     = "http://127.0.0.1:8000/mcp/"
-TOP_K            = 5
-MODEL            = os.getenv("OLLAMA_MODEL", "llama3.2")
-PDF_DIR          = Path("./data")
-LINE_RE          = re.compile(r"[^\S\r\n]*\r?\n[^\S\r\n]*")
+MCP_ENDPOINT = "http://127.0.0.1:8000/mcp/"
+TOP_K        = 5
+MODEL        = os.getenv("OLLAMA_MODEL", "llama3.2")
 
 # Regex patterns for location extraction
 COORD_RE        = re.compile(r"\b(-?\d{1,2}(?:\.\d+)?)[,\s]+(-?\d{1,3}(?:\.\d+)?)\b")
@@ -51,82 +51,9 @@ CITY_COUNTRY_RE = re.compile(r"\b([A-Z][a-z]+(?: [A-Z][a-z]+)*),\s*([A-Z][a-z]{2
 CITY_RE         = re.compile(r"\b([A-Z][a-z]+(?: [A-Z][a-z]+)*)\b")
 STOPWORDS = {"office", "hq", "center", "centre"}
 
-# ╔══════════════════════════════════════════════════════════════════╗
-# 2. Vector search helpers (from previous labs)                      ║
-# ╚══════════════════════════════════════════════════════════════════╝
-def open_collection() -> chromadb.Collection:
-    """Return (or create) the Chroma collection."""
-    client = chromadb.PersistentClient(
-        path=str(CHROMA_PATH),
-        settings=Settings(),
-        tenant=DEFAULT_TENANT,
-        database=DEFAULT_DATABASE,
-    )
-    return client.get_or_create_collection(COLLECTION_NAME)
-
-def rag_search(query: str, model: SentenceTransformer, coll: chromadb.Collection) -> List[str]:
-    """Embed query and search vector DB."""
-    q_emb = model.encode(query).tolist()
-    res = coll.query(query_embeddings=[q_emb], n_results=TOP_K, include=["documents"])
-    return res["documents"][0] if res["documents"] else []
-
-def extract_lines_from_pdf(path: Path) -> List[str]:
-    """Extract all non-blank lines from a PDF file."""
-    if not pdfplumber:
-        raise ImportError("pdfplumber is required for PDF ingestion. Install it with: pip install pdfplumber")
-
-    lines: List[str] = []
-    with pdfplumber.open(path) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text() or ""
-            for raw_line in LINE_RE.split(text):
-                line = raw_line.strip()
-                if line:
-                    lines.append(line)
-    return lines
-
-def ensure_chromadb_populated(embed_model: SentenceTransformer, coll: chromadb.Collection) -> None:
-    """
-    Ensure ChromaDB is populated with office data from PDF.
-    If the collection is empty, populate it from data/offices.pdf.
-    """
-    # Check if collection already has data
-    try:
-        count = coll.count()
-        if count > 0:
-            print(f"ChromaDB already populated with {count} documents")
-            return
-    except Exception:
-        pass
-
-    # Collection is empty, populate it
-    print("ChromaDB is empty, populating from offices.pdf...")
-
-    pdf_path = PDF_DIR / "offices.pdf"
-    if not pdf_path.exists():
-        print(f"WARNING: {pdf_path} not found. RAG queries for office locations may not work.")
-        return
-
-    try:
-        lines = extract_lines_from_pdf(pdf_path)
-        print(f"Extracted {len(lines)} lines from {pdf_path.name}")
-
-        # Embed and store each line
-        for idx, line in enumerate(lines):
-            vector = embed_model.encode(line).tolist()
-            coll.add(
-                ids=[f"{pdf_path.name}-{idx}"],
-                embeddings=[vector],
-                documents=[line],
-                metadatas=[{"path": str(pdf_path), "chunk_index": idx}],
-            )
-
-        print(f"✅ ChromaDB populated with {len(lines)} documents from {pdf_path.name}")
-    except Exception as e:
-        print(f"ERROR: Failed to populate ChromaDB: {e}")
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# 3. Location extraction helpers (from previous labs)                ║
+# 2. Location extraction helpers (from previous labs)                ║
 # ╚══════════════════════════════════════════════════════════════════╝
 def find_coords(texts: List[str]) -> Optional[Tuple[float, float]]:
     for txt in texts:
@@ -259,7 +186,7 @@ def unwrap(obj):
     return obj
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# 4. Classification-Based Canonical Query Handler                    ║
+# 3. Classification-Based Canonical Query Handler                    ║
 # ╚══════════════════════════════════════════════════════════════════╝
 async def handle_canonical_query_with_classification(user_query: str) -> str:
     """
@@ -420,24 +347,36 @@ async def handle_canonical_query_with_classification(user_query: str) -> str:
             return f"Unexpected error: {e}"
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# 5. Weather workflow (from previous labs)                           ║
+# 4. Weather workflow using MCP Vector Search                        ║
 # ╚══════════════════════════════════════════════════════════════════╝
 async def handle_weather_query(prompt: str) -> str:
-    """Original weather workflow using RAG + MCP."""
-    embed_model = SentenceTransformer(EMBED_MODEL_NAME)
-    coll = open_collection()
+    """
+    Weather workflow using MCP server's vector search (RAG).
 
-    # Ensure ChromaDB is populated with office data
-    ensure_chromadb_populated(embed_model, coll)
-
-    # Vector search
-    rag_hits = rag_search(prompt, embed_model, coll)
-    top_hit = rag_hits[0] if rag_hits else ""
-    if top_hit:
-        print(f"\nTop RAG hit: {top_hit[:100]}...\n")
-
-    # Get weather via MCP
+    This workflow:
+    1. Uses MCP's vector_search_locations for semantic matching (RAG via MCP)
+    2. Extracts coordinates or city names from the results
+    3. Uses MCP server's geocode and weather tools to get weather data
+    """
     async with Client(MCP_ENDPOINT) as mcp:
+        # Vector search via MCP (RAG) - semantic search capability
+        print(f"Searching for office location: '{prompt}'")
+        try:
+            search_result = await mcp.call_tool("vector_search_locations", {"query": prompt, "top_k": 1})
+            search_data = unwrap(search_result)
+
+            if "error" in search_data:
+                return f"Error searching for location: {search_data['error']}"
+
+            matches = search_data.get("matches", [])
+            if not matches:
+                return f"Could not find any office matching '{prompt}'. Try being more specific."
+
+            top_hit = matches[0]["document"]
+            print(f"\n📍 Top RAG hit: {top_hit[:100]}...\n")
+
+        except Exception as e:
+            return f"Failed to search for location: {e}"
         # Extract coordinates
         coords = find_coords([top_hit, prompt])
         if not coords:
@@ -562,9 +501,33 @@ async def demo_classification_workflow():
         print()
 
 if __name__ == "__main__":
-    print("RAG Agent with MCP Classification & Prompt Templates")
-    print("Make sure mcp_server_classification.py is running first!")
-    print("Type 'exit' to quit, 'demo' for sample queries.\n")
+    print("=" * 70)
+    print("RAG Agent with MCP-Centric Architecture")
+    print("=" * 70)
+    print("\nArchitecture:")
+    print("  🔹 MCP Server = Data Layer")
+    print("     - Owns vector database (ChromaDB)")
+    print("     - Manages embeddings for PDF + CSV")
+    print("     - Provides semantic search tools")
+    print("  🔹 RAG Agent = Orchestration Layer")
+    print("     - Routes queries to appropriate workflows")
+    print("     - Executes LLM with MCP data")
+    print("     - NO local file reading or embeddings")
+    print("\nData Sources (all via MCP):")
+    print("  • PDF (locations) → Vector search")
+    print("  • CSV (analytics) → Structured queries + Vector search")
+    print("\nPrerequisites:")
+    print("  ⚠️  MCP server MUST be running first!")
+    print("     Run: python labs/common/lab6_mcp_server_solution.txt")
+    print("\nCommands:")
+    print("  • Type 'exit' to quit")
+    print("  • Type 'demo' for sample queries")
+    print("\nExample Queries:")
+    print("  🌤️  Weather: 'What is the weather at HQ?'")
+    print("  📊 Analytics: 'Which office has the most employees?'")
+    print("  🔍 Semantic: 'Show me offices with high revenue'")
+    print("=" * 70)
+    print()
     
     while True:
         user_input = input("Query: ").strip()
