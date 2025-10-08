@@ -1,7 +1,7 @@
 # AI for App Development
 ## Building AI Apps that leverage agents, MCP, and RAG
 ## Session labs 
-## Revision 1.6 - 11/07/25
+## Revision 1.7 - 11/07/25
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -15,6 +15,7 @@
 
 ```
 ollama serve &
+<Hit Enter>
 ollama
 ```
 
@@ -42,12 +43,11 @@ ollama pull llama3.2
 
 <br><br>
 
-5. Once the model is downloaded, you can see it with the first command below. Then run the model with the second command below. This will take several minutes to run. Afterwards you can run the first command again to see the model is present.
+5. Once the model is downloaded, you can see it with the first command below. Then run the model with the second command below. This will load it and make it available to query/prompt. 
 
 ```
 ollama list
 ollama run llama3.2
-ollama list
 ```
 
 <br><br>
@@ -103,7 +103,7 @@ python simple_ollama.py
 
 <br><br>
 
-12. When prompted, enter a question like "What is the capital of France?" and press Enter. You should see the model's response printed to the terminal. This demonstrates how easy it is to integrate Ollama into Python application. Feel free to try other prompts. 
+12. When prompted, enter a question like "What is the capital of France?" and press Enter. You should see the model's response printed to the terminal. This demonstrates how easy it is to integrate Ollama into a Python application. Feel free to try other prompts. 
 <p align="center">
 **[END OF LAB]**
 </p>
@@ -186,7 +186,7 @@ code -d labs/common/lab3_server_solution.txt mcp_server.py
 
 <br><br>
 
-2. As you look at the differences, note that we are using FastMCP to more easily set up a server, with its @mcp.tool decorators to designate our functions as MCP tools. Also, we run this using the *streamable-http* transport protocol. Review each difference to see what is being done, then use the arrows to merge. When finished, click the "x"" in the tab at the top to close and save the files.
+2. As you look at the differences, note that we are using FastMCP to more easily set up a server, with its *@mcp.tool* decorators to designate our functions as MCP tools. Also, we run this using the *streamable-http* transport protocol. Review each difference to see what is being done, then use the arrows to merge. When finished, click the "x"" in the tab at the top to close and save the files.
 
 <br><br>
 
