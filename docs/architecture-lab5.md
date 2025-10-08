@@ -25,6 +25,7 @@ graph TB
             MCPServer[MCP Server]
             Weather[get_weather]
             Convert[convert_c_to_f]
+            Geocode[geocode_location]
         end
 
         subgraph "Final Generation"
@@ -134,8 +135,10 @@ def find_city_state(texts) -> Optional[str]:
 def find_city_country(texts) -> Optional[str]:
     """Extract 'City, Country' format"""
 
-def geocode(name: str) -> Optional[Tuple[float, float]]:
-    """Geocode city name to coordinates"""
+async def geocode_via_mcp(name: str, mcp_client) -> Optional[Tuple[float, float]]:
+    """Geocode city name via MCP server (with built-in retry logic)"""
+    # Delegates to MCP server's geocode_location tool
+    # Server handles retries with fresh connections
 ```
 
 ### 3. Enhanced LLM Generation
@@ -155,16 +158,6 @@ llm.invoke([
 ])
 ```
 
-### 4. Vector Memory Integration (NEW)
-```python
-# Before processing query
-past_convs = retrieve_relevant_conversations(query)
-if past_convs:
-    print(f"Found {len(past_convs)} relevant conversations")
-
-# After generating response
-store_conversation(query, response)
-```
 
 ## RAG vs. Traditional Agent
 
@@ -205,11 +198,12 @@ graph TB
 3. **Information Extraction**:
    ```
    RAG chunks → Regex parsing → Extract coords (40.7128, -74.0060)
-   Fallback: City name → Geocoding API → Coordinates
+   Fallback: City name → MCP geocode_location tool → Coordinates
    ```
 
 4. **MCP Tool Calls**:
    ```
+   geocode_location("Paris") → {lat: 48.8566, lon: 2.3522} (if needed)
    get_weather(40.7, -74.0) → {temp: 22°C, Clear}
    convert_c_to_f(22) → 71.6°F
    ```
@@ -221,57 +215,15 @@ graph TB
    Output: 3 sentences
    ```
 
-6. **Memory Storage**:
-   ```
-   Store conversation → ChromaDB memory collection
-   ```
-
-## Memory-Enhanced RAG Architecture
-
-```mermaid
-graph TB
-    subgraph "Enhanced RAG with Memory"
-        Query[New Query]
-
-        subgraph "Dual Retrieval"
-            RAG[RAG Search offices.pdf]
-            Memory[Memory Search past conversations]
-        end
-
-        subgraph "Context Assembly"
-            Combine[Combine: Document Context + Conversation Context]
-        end
-
-        subgraph "Agent + Generation"
-            Agent[Agent Processing]
-            Store[Store New Conversation]
-        end
-
-        Query --> RAG
-        Query --> Memory
-        RAG --> Combine
-        Memory --> Combine
-        Combine --> Agent
-        Agent --> Response[Response]
-        Response --> Store
-        Store --> Memory
-    end
-
-    style Memory fill:#ffe8e8
-    style Combine fill:#fff4e1
-    style Agent fill:#e1f5ff
-```
-
 ## Key Differences from Previous Labs
 
 | Feature | Lab 2-3 | Lab 4 | Lab 5 |
 |---------|---------|-------|-------|
 | Knowledge | Hardcoded | Indexed | RAG-Retrieved |
 | Context | None | Static vectors | Dynamic retrieval |
-| Memory | None | None | Vector-based |
 | Tools | Weather | None | Weather |
 | Generation | Simple | None | Rich (office + weather + fact) |
-| LLM Calls | 1-2 | 0 | 2-3 |
+| LLM Calls | 1-2 | 0 | 1-2 |
 
 ## Information Extraction Pipeline
 
@@ -289,7 +241,7 @@ flowchart TD
     CityCountry[Extract: "Paris, France"]
     City[Extract: "London"]
 
-    Geocode[Geocode API Get Coordinates]
+    Geocode[MCP geocode_location tool Get Coordinates with Retry]
 
     RAG --> Try1
     Try1 -->|Yes| Coords
@@ -318,17 +270,16 @@ flowchart TD
 - **Multi-step Processing**: RAG → Parse → Tools → Generate
 - **Information Extraction**: Regex + fallbacks for robust parsing
 - **LLM Enhancement**: Rich generation with multiple data sources
-- **Memory Integration**: Vector-based semantic memory for context
-- **Dual Context**: Document context + Conversation context
+- **Centralized API Calls**: All external APIs (weather + geocoding) via MCP server
+- **Resilient Architecture**: MCP server handles retries with fresh connections
 
 ## Architecture Characteristics
 - **Type**: RAG-augmented agentic workflow
 - **Complexity**: High
 - **Dependencies**: ChromaDB, MCP, SentenceTransformers, Ollama
-- **LLM Calls**: 2-3 per query
+- **LLM Calls**: 1-2 per query
 - **Latency**: ~5-10 seconds (RAG + Tools + Generation)
 - **Knowledge**: External (PDF documents)
-- **Memory**: Persistent vector storage
 
 ## RAG Benefits
 1. **Grounded Responses**: Answers based on documents, not hallucinations

@@ -202,27 +202,39 @@ def guess_city(texts: List[str]) -> Optional[str]:
                     
     return None
 
-def geocode(name: str) -> Optional[Tuple[float, float]]:
-    """Geocode city name to coordinates."""
-    url = "https://geocoding-api.open-meteo.com/v1/search"
-    
-    def _lookup(n: str):
+async def geocode_via_mcp(name: str, mcp_client: Client) -> Optional[Tuple[float, float]]:
+    """
+    Use the MCP server's geocoding tool to get coordinates.
+    If "City, XX" fails, retry with just "City".
+    """
+    async def _lookup(n: str):
         try:
-            r = requests.get(url, params={"name": n, "count": 1}, timeout=10)
-            r.raise_for_status()
-            data = r.json()
-            if data.get("results"):
-                hit = data["results"][0]
-                return hit["latitude"], hit["longitude"]
-        except Exception:
-            pass
+            result = await mcp_client.call_tool("geocode_location", {"name": n})
+            geo_data = unwrap(result)
+
+            if not isinstance(geo_data, dict):
+                return None
+
+            if "error" in geo_data:
+                print(f"Geocoding error: {geo_data['error']}")
+                return None
+
+            lat = geo_data.get("latitude")
+            lon = geo_data.get("longitude")
+
+            if lat is not None and lon is not None:
+                return (lat, lon)
+
+        except Exception as e:
+            print(f"Geocoding failed: {type(e).__name__}")
+
         return None
 
-    coords = _lookup(name)
+    coords = await _lookup(name)
     if coords:
         return coords
-    if "," in name:
-        return _lookup(name.split(",", 1)[0].strip())
+    if "," in name:                              # retry with simpler string
+        return await _lookup(name.split(",", 1)[0].strip())
     return None
 
 def unwrap(obj):
@@ -424,56 +436,59 @@ async def handle_weather_query(prompt: str) -> str:
     if top_hit:
         print(f"\nTop RAG hit: {top_hit[:100]}...\n")
 
-    # Extract coordinates
-    coords = find_coords([top_hit, prompt])
-    if not coords:
-        city_str = (
-            find_city_state([top_hit, prompt])
-            or find_city_country([top_hit, prompt])
-            or guess_city([top_hit, prompt])
-        )
-        if city_str:
-            print(f"Geocoding '{city_str}'...")
-            coords = geocode(city_str)
-
-    if not coords:
-        return "Could not determine location for weather lookup."
-
-    lat, lon = coords
-    print(f"Using coordinates: {lat:.4f}, {lon:.4f}")
-
     # Get weather via MCP
     async with Client(MCP_ENDPOINT) as mcp:
+        # Extract coordinates
+        coords = find_coords([top_hit, prompt])
+        if not coords:
+            city_str = (
+                find_city_state([top_hit, prompt])
+                or find_city_country([top_hit, prompt])
+                or guess_city([top_hit, prompt])
+            )
+            if city_str:
+                print(f"Geocoding '{city_str}'...")
+                coords = await geocode_via_mcp(city_str, mcp)
+
+        if not coords:
+            return "Could not determine location for weather lookup."
+
+        lat, lon = coords
+        print(f"Using coordinates: {lat:.4f}, {lon:.4f}")
         try:
             w_raw = await mcp.call_tool("get_weather", {"lat": lat, "lon": lon})
             weather = unwrap(w_raw)
-            
+
             # Handle case where weather might be unwrapped too much
             if isinstance(weather, (int, float)):
                 return f"Invalid weather data format received: {weather}"
-            
+
             if not isinstance(weather, dict):
                 return f"Weather data is not in expected format: {type(weather)}"
-            
+
+            # Check for error response from the weather service
+            if "error" in weather:
+                return f"Weather service error: {weather['error']}"
+
             temp_c = weather.get("temperature")
             cond = weather.get("conditions", "Unknown")
-            
+
             if temp_c is None:
                 return "Temperature data not available from weather service."
-            
+
             tf_raw = await mcp.call_tool("convert_c_to_f", {"c": temp_c})
             temp_f = float(unwrap(tf_raw))
-            
+
             # Generate summary
             safe_line = re.sub(r"\d+\s+\S+(?:\s+\S+)*,?\s*", "", top_hit, count=1).strip()
             city_part = ", ".join(top_hit.split(",", 2)[1:]).strip() or "N/A"
-            
+
             llm = ChatOllama(model=MODEL, temperature=0.2)
-            
+
             system_msg = (
                 "You are a helpful business assistant. Provide a concise weather summary."
             )
-            
+
             user_msg = (
                 f"Create a weather summary:\n"
                 f"• Office: {safe_line}\n"
@@ -481,14 +496,14 @@ async def handle_weather_query(prompt: str) -> str:
                 f"• Weather: {cond}, {temp_f:.1f} °F\n\n"
                 "Format: Office name + location, current weather, interesting fact about the city."
             )
-            
+
             summary = llm.invoke([
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": user_msg}
             ]).content.strip()
-            
+
             return summary
-            
+
         except ToolError as e:
             return f"Weather error: {e}"
 

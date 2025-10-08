@@ -8,7 +8,7 @@ Lab 3 introduces MCP as a standardized protocol for agent-tool communication, se
 ```mermaid
 graph TB
     subgraph "Client Side"
-        Agent[Agent agent_mcp.py]
+        Agent[Agent mcp_agent.py]
         MCPClient[FastMCP Client]
     end
 
@@ -22,6 +22,7 @@ graph TB
         subgraph "Tool Registry"
             Tool1[get_weather @mcp.tool]
             Tool2[convert_c_to_f @mcp.tool]
+            Tool3[geocode_location @mcp.tool]
         end
 
         API[Open-Meteo API]
@@ -49,8 +50,8 @@ graph TB
 ```mermaid
 flowchart LR
     Agent([Agent]) <-->|MCP Protocol| Server[MCP Server :8000]
-    Server <-->|Execute| Tools[Tools get_weather convert_c_to_f]
-    Tools <-->|API| External[External APIs]
+    Server <-->|Execute| Tools[Tools: get_weather, convert_c_to_f, geocode_location]
+    Tools <-->|API| External[Open-Meteo APIs]
 
     style Agent fill:#4CAF50,color:#fff
     style Server fill:#2196F3,color:#fff
@@ -70,7 +71,7 @@ sequenceDiagram
     Note over Agent,Server: Tool Discovery
     Agent->>Client: List available tools
     Client->>Server: GET /mcp/tools
-    Server->>Client: [get_weather, convert_c_to_f]
+    Server->>Client: [get_weather, convert_c_to_f, geocode_location]
     Client->>Agent: Tool list
 
     Note over Agent,Server: Tool Execution
@@ -90,21 +91,29 @@ sequenceDiagram
 ```python
 @mcp.tool()
 def get_weather(lat: float, lon: float) -> dict:
-    """Get weather for coordinates"""
-    # Call Open-Meteo API
+    """Get weather for coordinates with retry logic"""
+    # Retries up to 3 times with fresh connections
+    # Returns {temperature, code, conditions} or {error}
     return weather_data
 
 @mcp.tool()
 def convert_c_to_f(c: float) -> float:
     """Convert Celsius to Fahrenheit"""
     return c * 9/5 + 32
+
+@mcp.tool()
+def geocode_location(name: str) -> dict:
+    """Geocode location name to coordinates with retry logic"""
+    # Retries up to 3 times with fresh connections
+    # Returns {latitude, longitude, name} or {error}
+    return coordinates
 ```
 
 **Responsibilities:**
 - Host tools as HTTP endpoints
 - Handle tool discovery
-- Execute tool functions
-- Return standardized results
+- Execute tool functions with robust retry logic
+- Return standardized results (success or graceful errors)
 
 ### 2. MCP Client (in agent)
 ```python
@@ -207,6 +216,8 @@ POST /mcp/call
 - **Tool Discovery**: Dynamic registration and discovery
 - **Server-Client Pattern**: Multi-agent architecture support
 - **Decorator Pattern**: Clean tool registration with `@mcp.tool()`
+- **Robust Error Handling**: Fresh connections per retry, graceful error responses
+- **API Resilience**: Exponential backoff for transient failures (429, 5xx)
 
 ## Architecture Characteristics
 - **Type**: Client-server with standardized protocol

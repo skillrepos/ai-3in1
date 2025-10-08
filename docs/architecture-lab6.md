@@ -9,37 +9,41 @@ Lab 6 transforms the MCP server to use canonical query classification, creating 
 graph TB
     subgraph "Classification MCP Server :8000"
         subgraph "Query Classification"
-            LLM[LLM Query Classifier]
+            Classifier[Keyword Classifier]
             Mapper[Query → Canonical Mapping]
         end
 
         subgraph "Canonical Query System"
-            Queries[Canonical Queries: • highest_revenue • most_employees • average_revenue • office_count]
+            Queries[Canonical Queries: • revenue_stats • employee_analysis • efficiency_analysis • office_profile]
         end
 
         subgraph "Data Layer"
             CSV[(offices.csv)]
-            Pandas[Pandas Analysis DataFrame ops]
+            Pandas[Pandas DataFrame]
         end
 
         subgraph "Tool Endpoints"
-            Tool1[@mcp.tool classify_query]
-            Tool2[@mcp.tool analyze_offices]
+            Tool1[@mcp.tool classify_canonical_query]
+            Tool2[@mcp.tool get_query_template]
+            Tool3[@mcp.tool get_filtered_office_data]
+            Tool4[@mcp.tool get_weather]
+            Tool5[@mcp.tool geocode_location]
         end
 
-        LLM --> Mapper
+        Classifier --> Mapper
         Mapper --> Queries
-        Queries --> Pandas
+        Queries --> Tool2
         Pandas --> CSV
 
-        Tool1 --> LLM
-        Tool2 --> Pandas
+        Tool1 --> Classifier
+        Tool3 --> Pandas
     end
 
     Client[Agent/Client] <-->|MCP Protocol| Tool1
     Client <-->|MCP Protocol| Tool2
+    Client <-->|MCP Protocol| Tool3
 
-    style LLM fill:#e1f5ff
+    style Classifier fill:#e1f5ff
     style Queries fill:#fff4e1
     style Pandas fill:#e8f5e9
     style CSV fill:#ffe8e8
@@ -65,25 +69,34 @@ flowchart LR
 sequenceDiagram
     participant Agent
     participant MCP as MCP Server
-    participant LLM as Classifier LLM
-    participant Query as Query Engine
-    participant CSV as offices.csv
+    participant Classifier as Keyword Classifier
+    participant Template as Template Engine
+    participant Data as Data Layer
+    participant LLM as Agent's LLM
 
     Note over Agent,MCP: Step 1: Classification
     Agent->>MCP: "Which office has the most employees?"
-    MCP->>LLM: Classify this query
-    LLM->>LLM: Analyze intent
-    LLM->>MCP: canonical_query: "most_employees"
+    MCP->>Classifier: classify_canonical_query()
+    Classifier->>Classifier: Keyword matching & scoring
+    Classifier->>MCP: {"suggested_query": "employee_analysis", "confidence": 0.85}
+    MCP->>Agent: Classification result
 
-    Note over MCP,CSV: Step 2: Execution
-    MCP->>Query: Execute "most_employees"
-    Query->>CSV: Load data
-    CSV->>Query: DataFrame
-    Query->>Query: df["employees"].idxmax()
-    Query->>MCP: "New York: 120 employees"
+    Note over Agent,MCP: Step 2: Get Template
+    Agent->>MCP: get_query_template("employee_analysis")
+    MCP->>Template: Fetch template & requirements
+    Template->>MCP: {"template": "...", "data_requirements": ["employees", "city"]}
+    MCP->>Agent: Template
 
-    Note over MCP,Agent: Step 3: Response
-    MCP->>Agent: Result
+    Note over Agent,Data: Step 3: Get Data
+    Agent->>MCP: get_filtered_office_data(["employees", "city"])
+    MCP->>Data: Load & filter CSV
+    Data->>MCP: DataFrame → dict
+    MCP->>Agent: {"data": [...], "count": 8}
+
+    Note over Agent,LLM: Step 4: Execute LLM
+    Agent->>LLM: Template + Data
+    LLM->>LLM: Analyze & generate response
+    LLM->>Agent: "New York office has the most employees (120)"
 ```
 
 ## Component Details
@@ -93,80 +106,146 @@ sequenceDiagram
 **Defined Queries:**
 ```python
 CANONICAL_QUERIES = {
-    "highest_revenue": "Which office has the highest revenue?",
-    "lowest_revenue": "Which office has the lowest revenue?",
-    "most_employees": "Which office has the most employees?",
-    "average_revenue": "What is the average revenue?",
-    "total_revenue": "What is the total revenue?",
-    "office_count": "How many offices are there?",
-    "opened_after_YYYY": "Which offices opened after year?"
+    "revenue_stats": {
+        "description": "Calculate revenue statistics",
+        "example_queries": ["What's the average revenue?",
+                           "Which office has the highest revenue?"]
+    },
+    "employee_analysis": {
+        "description": "Analyze employee distribution",
+        "example_queries": ["Which office has the most employees?"]
+    },
+    "efficiency_analysis": {
+        "description": "Calculate revenue per employee",
+        "example_queries": ["Which office is most efficient?"]
+    },
+    "growth_analysis": {
+        "description": "Analyze office growth patterns by year",
+        "parameters": [{"name": "year_threshold", "type": "int"}],
+        "example_queries": ["What offices opened after 2014?"]
+    },
+    "office_profile": {
+        "description": "Detailed profile of a specific office",
+        "parameters": [{"name": "city", "type": "str"}],
+        "example_queries": ["Tell me about the Chicago office"]
+    }
 }
 ```
 
-### 2. LLM-Based Classifier
+### 2. Keyword-Based Classifier
 
 ```python
 @mcp.tool()
-def classify_query(natural_query: str) -> str:
+def classify_canonical_query(user_query: str) -> dict:
     """
-    Classify natural language query to canonical query.
+    Classify which canonical query best matches user intent.
 
-    Uses LLM to map:
-    "Which office makes the most money?" → "highest_revenue"
-    "How many branches do we have?" → "office_count"
+    Uses keyword matching and scoring to determine:
+    "Which office makes the most money?" → "revenue_stats"
+    "How many branches do we have?" → "employee_analysis"
+
+    Returns:
+        {"suggested_query": str, "confidence": float,
+         "alternatives": list, "reason": str}
     """
-    system_prompt = """
-    You are a query classifier. Map queries to canonical forms:
-    - highest_revenue
-    - most_employees
-    - average_revenue
-    ...
+    user_lower = user_query.lower()
+    scores = {}
 
-    Respond with ONLY the canonical query name.
-    """
+    # Score each canonical query based on keyword overlap
+    for query_name, config in CANONICAL_QUERIES.items():
+        score = 0
+        examples = config["example_queries"]
 
-    llm = ChatOllama(model="llama3.2", temperature=0)
-    response = llm.invoke([
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": natural_query}
-    ])
+        # Check keyword matches against example queries
+        for example in examples:
+            example_words = set(example.lower().split())
+            user_words = set(user_lower.split())
+            overlap = len(example_words.intersection(user_words))
+            if overlap > 0:
+                score += overlap / len(example_words)
 
-    return response.content.strip()
+        scores[query_name] = score
+
+    best_query = max(scores, key=scores.get)
+    confidence = min(scores[best_query], 1.0)
+
+    return {
+        "suggested_query": best_query,
+        "confidence": confidence,
+        "alternatives": [...],
+        "reason": f"Best keyword match with confidence {confidence:.2f}"
+    }
 ```
 
-### 3. Query Execution Engine
+### 3. Template and Data Tools
+
+The server provides prompt templates and data rather than executing queries:
 
 ```python
-@mcp.tool()
-def analyze_offices(canonical_query: str) -> str:
+@mcp.tool
+def get_query_template(query_name: str, city: str = None,
+                       year_threshold: int = None) -> dict:
     """
-    Execute canonical query on office data.
+    Get the prompt template for a canonical query.
+
+    Returns:
+        {"template": str, "data_requirements": list,
+         "parameters_used": dict}
+    """
+    config = CANONICAL_QUERIES[query_name]
+    template = config["prompt_template"]
+
+    # Template contains {data} placeholder for client substitution
+    return {
+        "template": template,
+        "data_requirements": config["data_requirements"],
+        "parameters_used": parameters
+    }
+
+@mcp.tool
+def get_filtered_office_data(columns: list = None,
+                             filters: dict = None) -> dict:
+    """
+    Get filtered office data for specific analysis.
+
+    Returns:
+        {"data": list, "count": int, "filters_applied": dict}
     """
     df = pd.read_csv("data/offices.csv")
 
-    if canonical_query == "highest_revenue":
-        idx = df["revenue_million"].idxmax()
-        return f"{df.loc[idx, 'city']}: ${df.loc[idx, 'revenue_million']}M"
-
-    elif canonical_query == "most_employees":
-        idx = df["employees"].idxmax()
-        return f"{df.loc[idx, 'city']}: {df.loc[idx, 'employees']} employees"
-
-    elif canonical_query == "average_revenue":
-        avg = df["revenue_million"].mean()
-        return f"Average revenue: ${avg:.2f}M"
-
-    # ... more queries
+    # Apply filters and column selection
+    # Return data as list of dicts
+    return {
+        "data": df.to_dict(orient="records"),
+        "count": len(df),
+        "columns": list(df.columns)
+    }
 ```
 
-### 4. CSV Data Structure
+### 4. Canonical Query Structure
 
-```csv
-city,country,employees,revenue_million,opened_year,departments
-New York,USA,120,85.5,2005,"Sales, Marketing, Engineering"
-Chicago,USA,85,52.3,2010,"Marketing, Operations"
-San Francisco,USA,95,78.2,2012,"Engineering, Product"
-...
+```python
+CANONICAL_QUERIES = {
+    "revenue_stats": {
+        "description": "Calculate revenue statistics across all offices",
+        "parameters": [],
+        "data_requirements": ["revenue_million", "city"],
+        "prompt_template": """You are a financial analyst...
+Office Revenue Data:
+{data}
+
+Please calculate and report:
+1. Which office has the highest revenue
+2. Which office has the lowest revenue
+3. Average revenue across all offices
+4. Total revenue across all offices""",
+        "example_queries": [
+            "What's the average revenue?",
+            "Which office has the highest revenue?"
+        ]
+    },
+    # ... more canonical queries
+}
 ```
 
 ## Classification vs. Traditional Approach
@@ -201,22 +280,31 @@ graph TB
    "Which office has the highest revenue?"
    ```
 
-2. **Classification** (LLM-based):
+2. **Classification** (Keyword-based):
    ```
-   LLM Analysis → Map to canonical → "highest_revenue"
+   Keyword matching → Score queries → "revenue_stats" (confidence: 0.85)
    ```
 
-3. **Query Execution** (Pandas):
+3. **Template Retrieval**:
    ```python
-   df = pd.read_csv("offices.csv")
-   idx = df["revenue_million"].idxmax()
-   result = f"{df.loc[idx, 'city']}: ${df.loc[idx, 'revenue_million']}M"
-   # Returns: "New York: $85.5M"
+   template = get_query_template("revenue_stats")
+   # Returns: {
+   #   "template": "You are a financial analyst...",
+   #   "data_requirements": ["revenue_million", "city"]
+   # }
    ```
 
-4. **Structured Response**:
+4. **Data Retrieval**:
+   ```python
+   data = get_filtered_office_data(columns=["revenue_million", "city"])
+   # Returns: {"data": [{city: "New York", revenue_million: 85.5}, ...]}
    ```
-   "New York office has the highest revenue: $85.5 million."
+
+5. **LLM Execution** (Client-side):
+   ```python
+   prompt = template.format(data=json.dumps(data))
+   response = llm.invoke(prompt)
+   # Returns: "New York office has the highest revenue: $85.5 million."
    ```
 
 ## Query Mapping Examples
@@ -231,11 +319,11 @@ graph LR
     end
 
     subgraph "Canonical Query"
-        C[highest_revenue]
+        C[revenue_stats]
     end
 
-    subgraph "Execution"
-        E[df'revenue_million'.idxmax]
+    subgraph "Client LLM Execution"
+        E[Template + Data → LLM Analysis]
     end
 
     N1 --> C
@@ -260,8 +348,8 @@ graph LR
 
     subgraph "Server Responsibilities"
         S1[Query Classification]
-        S2[Data Access]
-        S3[Query Execution]
+        S2[Template Management]
+        S3[Data Access]
     end
 
     C1 --> S1
@@ -274,22 +362,30 @@ graph LR
 ### 2. Extensibility
 Add new canonical queries without changing client:
 ```python
-# Server side only
-CANONICAL_QUERIES["revenue_per_employee"] = "Revenue per employee"
+# Server side only - add new query definition
+CANONICAL_QUERIES["team_size_analysis"] = {
+    "description": "Analyze team size distribution",
+    "parameters": [],
+    "data_requirements": ["employees", "city"],
+    "prompt_template": """Analyze team sizes:
+{data}
 
-def analyze_offices(query):
-    # ... existing queries
-    elif query == "revenue_per_employee":
-        df["rpe"] = df["revenue_million"] / df["employees"]
-        idx = df["rpe"].idxmax()
-        return f"{df.loc[idx, 'city']}: ${df.loc[idx, 'rpe']:.2f}M/employee"
+Provide insights on team size distribution and patterns.""",
+    "example_queries": [
+        "How big are our teams?",
+        "Show me team size analysis"
+    ]
+}
 ```
 
 ### 3. Consistency
-All queries return structured, predictable results:
+Templates ensure structured, predictable LLM responses:
 ```
-Format: "{city} office: {metric}"
-Example: "New York office: 120 employees"
+Template structure:
+- System prompt (role/context)
+- Data placeholder {data}
+- Specific instructions (what to calculate/report)
+- Output format guidance
 ```
 
 ## Key Differences from Lab 3
@@ -297,12 +393,14 @@ Example: "New York office: 120 employees"
 | Aspect | Lab 3 (Tools) | Lab 6 (Classification) |
 |--------|---------------|----------------------|
 | Query Type | Tool names | Natural language |
-| Processing | Direct execution | Classify → Execute |
+| Processing | Direct execution | Classify → Template → Data → Execute |
 | Data Source | External APIs | Local CSV |
 | Flexibility | Fixed tools | Extensible queries |
-| Complexity | Low | Medium |
-| LLM Usage | None (in server) | Classification |
-| Scalability | Add new tools | Add new queries |
+| Complexity | Low | Medium-High |
+| LLM Usage | None (in server) | Client-side (for analysis) |
+| Classification | None | Keyword-based |
+| Server Role | Execute tools | Classify + Provide templates/data |
+| Client Role | Call tools | Execute LLM with templates |
 
 ## Canonical Query Benefits
 
@@ -315,45 +413,57 @@ Example: "New York office: 120 employees"
 
 ## Implementation Patterns
 
-### Pattern 1: Classification with Fallback
+### Pattern 1: Keyword Scoring
 ```python
-def classify_query(query: str) -> str:
-    try:
-        # Try LLM classification
-        return llm_classify(query)
-    except:
-        # Fallback to keyword matching
-        if "highest revenue" in query.lower():
-            return "highest_revenue"
-        # ... more rules
+def classify_canonical_query(user_query: str) -> dict:
+    user_lower = user_query.lower()
+    scores = {}
+
+    for query_name, config in CANONICAL_QUERIES.items():
+        score = 0
+        # Score based on example query overlap
+        for example in config["example_queries"]:
+            example_words = set(example.lower().split())
+            user_words = set(user_lower.split())
+            overlap = len(example_words.intersection(user_words))
+            if overlap > 0:
+                score += overlap / len(example_words)
+
+        scores[query_name] = score
+
+    best_query = max(scores, key=scores.get)
+    return {"suggested_query": best_query, "confidence": scores[best_query]}
 ```
 
-### Pattern 2: Parameterized Queries
+### Pattern 2: Template with Parameters
 ```python
-# Query: "Which offices opened after 2010?"
-# Canonical: "opened_after_2010"
+# Template has placeholders for both data and parameters
+template = """Analyze offices opened after {year_threshold}.
 
-if query.startswith("opened_after_"):
-    year = int(query.split("_")[-1])
-    filtered = df[df["opened_year"] > year]
-    return filtered["city"].tolist()
+Data: {data}
+
+Provide growth insights..."""
+
+# Server substitutes parameters, leaves {data} for client
+formatted = template.format(year_threshold=2014)
+# Client later substitutes {data} with actual office records
 ```
 
 ## Key Learning Points
-- **Query Classification**: Natural language → Canonical form
-- **Canonical Queries**: Predefined, structured operations
-- **LLM for Classification**: Using LLM for intent detection
-- **Pandas Operations**: DataFrame analysis for queries
-- **Server-Side Logic**: Classification happens server-side
-- **Extensibility**: Easy to add new canonical queries
-- **Separation**: Client sends natural language, server handles complexity
+- **Query Classification**: Natural language → Canonical form via keyword matching
+- **Canonical Queries**: Predefined query definitions with templates
+- **Template System**: Structured prompts for consistent LLM responses
+- **Separation of Concerns**: Server classifies & provides templates, client executes LLM
+- **Data Requirements**: Templates specify what data columns are needed
+- **Client-Side LLM**: LLM execution happens on client with server-provided templates
+- **Extensibility**: Add new canonical queries by updating server config only
 
 ## Architecture Characteristics
 - **Type**: Classification-based query system
 - **Complexity**: Medium-High
 - **Dependencies**: FastMCP, Pandas, Ollama
 - **Data Source**: CSV files (local)
-- **Latency**: ~2-3 seconds (LLM classification + query execution)
+- **Latency**: ~1-2 seconds (keyword classification + template/data retrieval)
 - **Scalability**: Add queries without client changes
 - **Flexibility**: Handles natural language variations
 

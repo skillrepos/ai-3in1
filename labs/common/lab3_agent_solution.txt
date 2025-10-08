@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
 """
+Lab 3: TAO Agent with FastMCP Weather Server
 ────────────────────────────────────────────────────────────────────
 Interactive Thought-Action-Observation (TAO) agent that queries a local
-FastMCP weather server.  The user can ask *any* question; the Llama-3.2
-model first extracts a city name from that raw prompt, then plans the
-two tool calls:
+FastMCP weather server. This demonstrates:
 
-    get_weather(lat, lon)   → current temp in °C + conditions
-    convert_c_to_f(c)       → °F
+* **Client-Server Architecture**: Agent connects to MCP server via HTTP
+* **LLM-based City Extraction**: Uses Llama-3.2 to extract city names
+* **Two-Step Tool Calling**: Coordinates weather lookup and unit conversion
+* **TAO Protocol**: Full thought/action/observation trace for transparency
 
-The script prints the complete TAO trace on every run.
+Workflow:
+1. User asks any natural language weather question
+2. LLM extracts city name from the question
+3. Agent plans and calls get_weather(lat, lon) → temp °C + conditions
+4. Agent calls convert_c_to_f(c) → temp °F
+5. Prints complete TAO trace and final result
+
+Prerequisites: FastMCP weather server must be running on localhost:8000
 """
 
 import asyncio
@@ -22,9 +30,11 @@ from fastmcp import Client
 from fastmcp.exceptions import ToolError
 from langchain_ollama import ChatOllama   # local Llama-3.2 wrapper
 
-# ──────────────────────────────────────────────────────────────────
-# 1.  System prompt that defines the TAO protocol
-# ──────────────────────────────────────────────────────────────────
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║ 1.  System prompt that defines the TAO protocol                  ║
+# ╚══════════════════════════════════════════════════════════════════╝
+# This prompt teaches the LLM how to format its tool-calling responses.
+# The agent expects exactly 3 lines: Thought, Action, and Args.
 SYSTEM = textwrap.dedent("""
 You are an agent with two tools:
 
@@ -45,9 +55,11 @@ Do NOT output anything else.
 
 ARGS_RE = re.compile(r"Args:\s*(\{.*?\})(?:\s|$)", re.S)
 
-# ──────────────────────────────────────────────────────────────────
-# 2.  Robust unwrap helper (works with all FastMCP versions)
-# ──────────────────────────────────────────────────────────────────
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║ 2.  Robust unwrap helper (works with all FastMCP versions)       ║
+# ╚══════════════════════════════════════════════════════════════════╝
+# FastMCP wraps tool results in various formats depending on version.
+# This helper extracts the actual Python value from any wrapper format.
 def unwrap(obj):
     """Return plain Python value from any CallToolResult variant."""
     if hasattr(obj, "structured_content") and obj.structured_content:
@@ -69,15 +81,19 @@ def unwrap(obj):
             return numeric_vals[0]
     return obj
 
-# ──────────────────────────────────────────────────────────────────
-# 3.  LLM-only city extractor
-# ──────────────────────────────────────────────────────────────────
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║ 3.  LLM-based city extractor                                     ║
+# ╚══════════════════════════════════════════════════════════════════╝
+# Uses a separate LLM call to extract city names from natural language.
+# This handles inputs like "What's the weather in Paris?" → "Paris"
 extract_llm = ChatOllama(model="llama3.2", temperature=0.0)
 
 def extract_city(prompt: str) -> Optional[str]:
     """
-    Ask the LLM to pull a city name from a prompt.
-    Returns None if it replies 'NONE'.
+    Ask the LLM to extract a city name from natural language input.
+
+    Returns:
+        City name string, or None if no city is mentioned
     """
     ask = (
         "Return ONLY the city name mentioned here (no country or state). "
@@ -87,9 +103,12 @@ def extract_city(prompt: str) -> Optional[str]:
     reply = extract_llm.invoke(ask).content.strip()
     return None if reply.upper() == "NONE" else reply
 
-# ──────────────────────────────────────────────────────────────────
-# 4.  One TAO episode (async because MCP calls are async)
-# ──────────────────────────────────────────────────────────────────
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║ 4.  TAO episode execution (async for MCP client)                 ║
+# ╚══════════════════════════════════════════════════════════════════╝
+# Orchestrates the two-step TAO loop:
+# Step 1: LLM plans get_weather() call → we execute → observe
+# Step 2: LLM plans convert_c_to_f() call → we execute → final result
 async def run(question: str) -> None:
     llm = ChatOllama(model="llama3.2", temperature=0.0)
 
@@ -101,11 +120,12 @@ async def run(question: str) -> None:
 
         print("\n--- Thought → Action → Observation → Final ---\n")
 
-        # 1. Planning step → get_weather
+        # ── Step 1: LLM plans weather lookup with coordinates ───────────
         plan1 = llm.invoke(messages).content.strip()
         print(plan1 + "\n")
         args1 = json.loads(ARGS_RE.search(plan1).group(1))
 
+        # Call MCP server's get_weather tool
         try:
             res1 = unwrap(await mcp.call_tool("get_weather", args1))
         except ToolError as e:
@@ -116,7 +136,7 @@ async def run(question: str) -> None:
         cond   = res1.get("conditions", "Unknown")
         print(f"Observation: {{'temperature': {temp_c}, 'conditions': '{cond}'}}\n")
 
-        # 2. Planning step → convert_c_to_f
+        # ── Step 2: LLM plans temperature unit conversion ───────────────
         messages += [
             {"role": "assistant", "content": plan1},
             {"role": "user",      "content": f"Observation: {temp_c}"},
@@ -124,6 +144,7 @@ async def run(question: str) -> None:
         plan2 = llm.invoke(messages).content.strip()
         print(plan2 + "\n")
 
+        # Call MCP server's convert_c_to_f tool
         try:
             raw = await mcp.call_tool("convert_c_to_f", {"c": temp_c})
             temp_f = float(unwrap(raw))
@@ -134,9 +155,9 @@ async def run(question: str) -> None:
         print(f"Observation: {{'temperature_f': {temp_f}}}\n")
         print(f"Final: {cond} ({temp_f:.1f} °F)\n")
 
-# ──────────────────────────────────────────────────────────────────
-# 5.  Simple REPL
-# ──────────────────────────────────────────────────────────────────
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║ 5.  Interactive REPL for user queries                            ║
+# ╚══════════════════════════════════════════════════════════════════╝
 if __name__ == "__main__":
     print("Weather TAO agent (LLM extraction, 'exit' to quit)\n")
     while True:
