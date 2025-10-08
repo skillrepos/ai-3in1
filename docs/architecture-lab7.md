@@ -24,6 +24,7 @@ graph TB
             RAG[RAG Search]
             VDB[(ChromaDB offices.pdf)]
             Parse[Parse Location]
+            Geocode[MCP: geocode_location if needed]
             Weather[MCP: get_weather]
             Convert[MCP: convert_c_to_f]
             LLM2[LLM: City Summary]
@@ -43,13 +44,15 @@ graph TB
         Detector -->|Weather Query| RAG
         RAG --> VDB
         VDB --> Parse
-        Parse --> Weather
+        Parse --> Geocode
+        Geocode --> Weather
         Weather --> Convert
         Convert --> LLM2
         LLM2 --> Response2[Weather Answer]
 
         Class --> MCPServer
         Analyze --> MCPServer
+        Geocode --> MCPServer
         Weather --> MCPServer
         Convert --> MCPServer
     end
@@ -190,12 +193,20 @@ async def handle_weather_query(query: str, mcp_client):
     # Step 1: RAG search
     rag_results = rag_search(query, embed_model, vector_db)
 
-    # Step 2: Extract location
-    coords = find_coords(rag_results) or geocode(find_city(rag_results))
+    # Step 2: Extract location (coordinates or city name)
+    coords = find_coords(rag_results)  # Try to find explicit lat/lon
 
-    # Step 3: Get weather
-    weather = await mcp_client.call_tool("get_weather", coords)
-    temp_f = await mcp_client.call_tool("convert_c_to_f", weather["temp"])
+    if not coords:
+        # Fallback: extract city name and geocode via MCP
+        city_name = find_city_state(rag_results) or find_city_country(rag_results) or guess_city(rag_results)
+        if city_name:
+            geo_result = await mcp_client.call_tool("geocode_location", {"name": city_name})
+            coords = (geo_result["latitude"], geo_result["longitude"])
+
+    # Step 3: Get weather via MCP
+    lat, lon = coords
+    weather = await mcp_client.call_tool("get_weather", {"lat": lat, "lon": lon})
+    temp_f = await mcp_client.call_tool("convert_c_to_f", {"c": weather["temperature"]})
 
     # Step 4: Generate summary with city fact
     llm = ChatOllama(model="llama3.2")
@@ -276,7 +287,7 @@ Workflow:
 Output: Formatted data answer
 ```
 
-### Example 2: Weather Query
+### Example 2: Weather Query (with explicit coordinates)
 ```
 Input: "What's the weather at our Paris office?"
 
@@ -284,11 +295,30 @@ Route Detection: [weather] → WEATHER_RAG
 
 Workflow:
   1. RAG search("Paris office") → "Paris Office, 48.8566, 2.3522..."
-  2. Extract coords → (48.8566, 2.3522)
+  2. Extract coords → (48.8566, 2.3522) [found in text]
   3. get_weather(48.8566, 2.3522) → {temp: 22°C, Clear}
   4. convert_c_to_f(22) → 71.6°F
   5. LLM summary → "Paris Office, currently 71.6°F and clear.
                      The Champs-Élysées is a famous Paris landmark."
+
+Output: Rich weather + context answer
+```
+
+### Example 2b: Weather Query (with geocoding fallback)
+```
+Input: "What's the weather in Austin?"
+
+Route Detection: [weather] → WEATHER_RAG
+
+Workflow:
+  1. RAG search("Austin") → "Austin Office, Texas, opened 2015..."
+  2. Extract coords → None [no explicit coordinates in text]
+  3. Extract city → "Austin, TX"
+  4. geocode_location("Austin, TX") → {lat: 30.2672, lon: -97.7431}
+  5. get_weather(30.2672, -97.7431) → {temp: 28°C, Partly cloudy}
+  6. convert_c_to_f(28) → 82.4°F
+  7. LLM summary → "Austin Office, currently 82.4°F and partly cloudy.
+                     Austin is known as the Live Music Capital."
 
 Output: Rich weather + context answer
 ```
@@ -318,8 +348,9 @@ graph TB
         end
 
         subgraph "Weather Tools"
-            T3[@mcp.tool get_weather]
-            T4[@mcp.tool convert_c_to_f]
+            T3[@mcp.tool geocode_location]
+            T4[@mcp.tool get_weather]
+            T5[@mcp.tool convert_c_to_f]
         end
 
         subgraph "Data Sources"
@@ -330,17 +361,20 @@ graph TB
         T1 --> LLM[LLM Classifier]
         T2 --> CSV
         T3 --> API
+        T4 --> API
     end
 
     Agent[RAG Agent] <-->|MCP Protocol| T1
     Agent <-->|MCP Protocol| T2
     Agent <-->|MCP Protocol| T3
     Agent <-->|MCP Protocol| T4
+    Agent <-->|MCP Protocol| T5
 
     style T1 fill:#e1f5ff
     style T2 fill:#e1f5ff
     style T3 fill:#fff4e1
     style T4 fill:#fff4e1
+    style T5 fill:#fff4e1
 ```
 
 ## Key Advantages

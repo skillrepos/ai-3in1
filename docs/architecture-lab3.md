@@ -65,22 +65,33 @@ sequenceDiagram
     participant Agent
     participant Client as MCP Client
     participant Server as MCP Server :8000
-    participant Tool as Weather Tool
+    participant GeoTool as Geocode Tool
+    participant WeatherTool as Weather Tool
     participant API as Open-Meteo
 
     Note over Agent,Server: Tool Discovery
     Agent->>Client: List available tools
     Client->>Server: GET /mcp/tools
-    Server->>Client: [get_weather, convert_c_to_f, geocode_location]
+    Server->>Client: [geocode_location, get_weather, convert_c_to_f]
     Client->>Agent: Tool list
 
-    Note over Agent,Server: Tool Execution
-    Agent->>Client: call_tool("get_weather", {lat: 48, lon: 2})
+    Note over Agent,Server: Step 1: Geocoding
+    Agent->>Client: call_tool("geocode_location", {name: "Paris"})
     Client->>Server: POST /mcp/call
-    Server->>Tool: Execute get_weather(48, 2)
-    Tool->>API: HTTP GET weather data
-    API->>Tool: {temp: 22, conditions: "Clear"}
-    Tool->>Server: Result
+    Server->>GeoTool: Execute geocode_location("Paris")
+    GeoTool->>API: HTTP GET geocoding
+    API->>GeoTool: {lat: 48.8566, lon: 2.3522}
+    GeoTool->>Server: Result
+    Server->>Client: CallToolResult
+    Client->>Agent: Coordinates
+
+    Note over Agent,Server: Step 2: Weather
+    Agent->>Client: call_tool("get_weather", {lat: 48.8566, lon: 2.3522})
+    Client->>Server: POST /mcp/call
+    Server->>WeatherTool: Execute get_weather(48.8566, 2.3522)
+    WeatherTool->>API: HTTP GET weather data
+    API->>WeatherTool: {temp: 22, conditions: "Clear"}
+    WeatherTool->>Server: Result
     Server->>Client: CallToolResult
     Client->>Agent: Weather data
 ```

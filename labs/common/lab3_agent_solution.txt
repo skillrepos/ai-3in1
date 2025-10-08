@@ -7,15 +7,16 @@ FastMCP weather server. This demonstrates:
 
 * **Client-Server Architecture**: Agent connects to MCP server via HTTP
 * **LLM-based City Extraction**: Uses Llama-3.2 to extract city names
-* **Two-Step Tool Calling**: Coordinates weather lookup and unit conversion
+* **Three-Step Tool Calling**: Geocoding, weather lookup, and unit conversion
 * **TAO Protocol**: Full thought/action/observation trace for transparency
 
 Workflow:
 1. User asks any natural language weather question
 2. LLM extracts city name from the question
-3. Agent plans and calls get_weather(lat, lon) → temp °C + conditions
-4. Agent calls convert_c_to_f(c) → temp °F
-5. Prints complete TAO trace and final result
+3. Agent calls geocode_location(city) → lat/lon coordinates
+4. Agent calls get_weather(lat, lon) → temp °C + conditions
+5. Agent calls convert_c_to_f(c) → temp °F
+6. Prints complete TAO trace and final result
 
 Prerequisites: FastMCP weather server must be running on localhost:8000
 """
@@ -36,7 +37,10 @@ from langchain_ollama import ChatOllama   # local Llama-3.2 wrapper
 # This prompt teaches the LLM how to format its tool-calling responses.
 # The agent expects exactly 3 lines: Thought, Action, and Args.
 SYSTEM = textwrap.dedent("""
-You are an agent with two tools:
+You are an agent with three tools:
+
+geocode_location(name:str)
+    → {"latitude": float, "longitude": float, "name": str}
 
 get_weather(lat:float, lon:float)
     → {"temperature": float, "code": int, "conditions": str}
@@ -48,7 +52,7 @@ When you plan, emit exactly three lines:
 
 Thought: <your thought>
 Action: <tool name>
-Args: {"lat":X,"lon":Y}   or   {"c":Z}
+Args: {"name":"City"}   or   {"lat":X,"lon":Y}   or   {"c":Z}
 
 Do NOT output anything else.
 """).strip()
@@ -106,43 +110,75 @@ def extract_city(prompt: str) -> Optional[str]:
 # ╔══════════════════════════════════════════════════════════════════╗
 # ║ 4.  TAO episode execution (async for MCP client)                 ║
 # ╚══════════════════════════════════════════════════════════════════╝
-# Orchestrates the two-step TAO loop:
-# Step 1: LLM plans get_weather() call → we execute → observe
-# Step 2: LLM plans convert_c_to_f() call → we execute → final result
-async def run(question: str) -> None:
+# Orchestrates the three-step TAO loop:
+# Step 1: LLM plans geocode_location() call → we execute → get lat/lon
+# Step 2: LLM plans get_weather() call → we execute → get temp & conditions
+# Step 3: LLM plans convert_c_to_f() call → we execute → final result
+async def run(city: str) -> None:
     llm = ChatOllama(model="llama3.2", temperature=0.0)
 
     async with Client("http://127.0.0.1:8000/mcp/") as mcp:
         messages = [
             {"role": "system", "content": SYSTEM},
-            {"role": "user",   "content": question},
+            {"role": "user",   "content": f"What is the current weather in {city}?"},
         ]
 
         print("\n--- Thought → Action → Observation → Final ---\n")
 
-        # ── Step 1: LLM plans weather lookup with coordinates ───────────
+        # ── Step 1: LLM plans geocoding to get coordinates ──────────────
         plan1 = llm.invoke(messages).content.strip()
         print(plan1 + "\n")
         args1 = json.loads(ARGS_RE.search(plan1).group(1))
 
+        # Call MCP server's geocode_location tool
+        try:
+            geo_result = unwrap(await mcp.call_tool("geocode_location", args1))
+        except ToolError as e:
+            print(f"Error: geocode_location failed ({e})\n")
+            return
+
+        # Handle geocoding errors
+        if isinstance(geo_result, dict) and "error" in geo_result:
+            print(f"Error: {geo_result['error']}\n")
+            return
+
+        lat = geo_result.get("latitude")
+        lon = geo_result.get("longitude")
+        location_name = geo_result.get("name", city)
+        print(f"Observation: {{'latitude': {lat}, 'longitude': {lon}, 'name': '{location_name}'}}\n")
+
+        # ── Step 2: LLM plans weather lookup with coordinates ───────────
+        messages += [
+            {"role": "assistant", "content": plan1},
+            {"role": "user",      "content": f"Observation: {{'latitude': {lat}, 'longitude': {lon}}}"},
+        ]
+        plan2 = llm.invoke(messages).content.strip()
+        print(plan2 + "\n")
+        args2 = json.loads(ARGS_RE.search(plan2).group(1))
+
         # Call MCP server's get_weather tool
         try:
-            res1 = unwrap(await mcp.call_tool("get_weather", args1))
+            weather_result = unwrap(await mcp.call_tool("get_weather", args2))
         except ToolError as e:
             print(f"Error: get_weather failed ({e})\n")
             return
 
-        temp_c = res1.get("temperature")
-        cond   = res1.get("conditions", "Unknown")
+        # Handle weather errors
+        if isinstance(weather_result, dict) and "error" in weather_result:
+            print(f"Error: {weather_result['error']}\n")
+            return
+
+        temp_c = weather_result.get("temperature")
+        cond   = weather_result.get("conditions", "Unknown")
         print(f"Observation: {{'temperature': {temp_c}, 'conditions': '{cond}'}}\n")
 
-        # ── Step 2: LLM plans temperature unit conversion ───────────────
+        # ── Step 3: LLM plans temperature unit conversion ───────────────
         messages += [
-            {"role": "assistant", "content": plan1},
-            {"role": "user",      "content": f"Observation: {temp_c}"},
+            {"role": "assistant", "content": plan2},
+            {"role": "user",      "content": f"Observation: {{'temperature': {temp_c}, 'conditions': '{cond}'}}"},
         ]
-        plan2 = llm.invoke(messages).content.strip()
-        print(plan2 + "\n")
+        plan3 = llm.invoke(messages).content.strip()
+        print(plan3 + "\n")
 
         # Call MCP server's convert_c_to_f tool
         try:
@@ -153,13 +189,13 @@ async def run(question: str) -> None:
             return
 
         print(f"Observation: {{'temperature_f': {temp_f}}}\n")
-        print(f"Final: {cond} ({temp_f:.1f} °F)\n")
+        print(f"Final: {location_name} - {cond} ({temp_f:.1f} °F)\n")
 
 # ╔══════════════════════════════════════════════════════════════════╗
 # ║ 5.  Interactive REPL for user queries                            ║
 # ╚══════════════════════════════════════════════════════════════════╝
 if __name__ == "__main__":
-    print("Weather TAO agent (LLM extraction, 'exit' to quit)\n")
+    print("Weather TAO agent with geocoding (LLM extraction, 'exit' to quit)\n")
     while True:
         raw_prompt = input("Ask about the weather: ").strip()
         if raw_prompt.lower() == "exit":
@@ -170,4 +206,4 @@ if __name__ == "__main__":
             print("No city detected; please try again.\n")
             continue
 
-        asyncio.run(run(f"What is the current weather in {city}?"))
+        asyncio.run(run(city))
