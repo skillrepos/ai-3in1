@@ -1,7 +1,7 @@
 # AI for App Development
 ## Building AI Apps that leverage agents, MCP, and RAG
 ## Session labs 
-## Revision 1.8 - 11/08/25
+## Revision .0 - 11/08/25
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -427,7 +427,7 @@ Tell me about the Southern office
 </p>
 </br></br>
 
-**Lab 6 - Building an Classification MCP Server**
+**Lab 6 - Building a Classification MCP Server**
 
 **Purpose: In this lab, we'll transform our simple MCP server to use classifications and prompt templates. This creates a scalable architecture where the server manages query interpretation and templates, while the client focuses on LLM execution.**
 
@@ -466,7 +466,7 @@ code -d labs/common/lab6_mcp_server_solution.txt mcp_server_classification.py
 
 <br><br>
 
-5. When finished merging, save the file by closing the tab. Now start the new classification server:
+5. When finished merging, save the file by closing the tab. Now start the new server:
 
 ```
 python mcp_server_classification.py
@@ -476,14 +476,35 @@ python mcp_server_classification.py
 
 <br><br>
 
-6. The server should start and show the available tool categories. (Scroll back up to the start of the output.) You'll see it provides weather tools (from previous labs) plus the new classification, template, data, and validation tools. **This will take awhile to load everything and startup.**
+6. The server should start and initialize its vector database. **This will take awhile to load and be ready.** You'll see:
+
+   - Loading of the embedding model (all-MiniLM-L6-v2)
+   - Initialization of ChromaDB at ./mcp_chroma_db
+   - Population of two vector collections:
+     * office_locations (from PDF data)
+     * office_analytics (from CSV data)
+   - List of available tool categories
+
+   The server now provides several categories of tools:
+   - **Vector Search** : Semantic search for locations and analytics
+   - **Weather** : Weather and geocoding tools (from previous labs)
+   - **Classification** : Query intent classification
+   - **Templates** : Prompt template management
+   - **Structured Data** : Raw CSV data access
+   - **Legacy Tools** : Alternative keyword-based search
 
 
 ![Running the MCP server](./images/aiapps8.png?raw=true "Running the MCP server") 
 
 <br><br>
 
-7. Let's see the list of tools the MCP server makes available. Run the discovery tool again.
+7. Understanding the vector database architecture:
+    - The MCP server now owns and manages the vector database
+    - Both PDF (locations) and CSV (analytics) data are embedded
+    - This centralized approach allows multiple agents to share the same data
+    - The server creates semantic embeddings for intelligent query matching 
+
+Let's see the list of tools the MCP server makes available. Run the discovery tool again.
 
 ```
 python tools/discover_tools.py
@@ -491,7 +512,12 @@ python tools/discover_tools.py
 
 <br><br>
 
-8. You should see several new tools listed, including `classify_canonical_query`, `get_query_template`, `get_filtered_office_data`, etc. This confirms our classification server is running properly. (You may need to scroll down to see these.)
+8.  You should see several tool categories:
+   - **New vector search tools**: `vector_search_locations`, `vector_search_analytics`
+   - **Classification tools**: `classify_canonical_query`, `get_query_template`
+   - **Data access tools**: `get_office_dataset`, `get_filtered_office_data`
+   - **Validation tools**: `validate_query_parameters`
+   - **Weather tools**: `get_weather`, `geocode_location`, `convert_c_to_f`
 
 ![Discover tools](./images/aiapps22.png?raw=true "Discover tools") 
 
@@ -508,7 +534,12 @@ python tools/discover_tools.py
 
 **Purpose: In this lab, we'll build an agent that uses the classification server from Lab 6. This agent demonstrates the 4-step classification workflow: classify → template → data → execute.**
 
-1. Let's build out the classification-based agent using our skeleton file. This agent will intelligently route queries to either the weather workflow (from previous labs) or the new classification workflow for data analysis.
+1.  Let's build out the classification-based agent using our skeleton file. This agent demonstrates a **centralized data architecture** where:
+   - The MCP server owns all data access (vector DB, raw files, embeddings)
+   - The agent is pure orchestration (no local files, no local vector DB)
+   - Queries are routed to either weather workflow (vector search + weather API) or classification workflow (structured analytics)
+
+   This represents best practices for production RAG systems with clear separation of concerns.
 
 ```
 code -d labs/common/lab7_rag_agent_solution.txt rag_agent_classification.py
@@ -518,15 +549,21 @@ code -d labs/common/lab7_rag_agent_solution.txt rag_agent_classification.py
 
 <br><br>
 
-2. As you review and merge the differences, observe the key patterns:
-   - **Query routing**: Simple keyword matching determines whether to use weather or data analysis workflow
-   - **Classification workflow**: 4-step process to interpret query, get template, fetch data, execute LLM
-   - **Parameter extraction**: Logic to extract city names, years, etc. from user queries
-   - **Local LLM execution**: All LLM calls happen on the client side using templates from server
+2. As you review and merge the differences, observe the key architectural patterns:
+   - **Simplified imports**: No chromadb, pdfplumber, or sentence-transformers needed
+   - **MCP-centric data access**: All data comes from MCP server tools
+   - **Query routing**: Keyword matching determines weather vs. analytics workflow
+   - **Weather workflow**: Uses MCP's `vector_search_locations()` for semantic location matching
+   - **Classification workflow**: 4-step process (classify → template → data → execute)
+   - **Local LLM execution**: Agent only runs the LLM, data comes from server
 
 <br><br>
 
-3. Merge each section carefully. The `handle_canonical_query_with_classification()` function is the heart of the new architecture - it orchestrates the entire classification workflow.
+3.  Merge each section carefully. Notice two key functions:
+   - `handle_weather_query()`: Now uses MCP's `vector_search_locations()` instead of local ChromaDB
+   - `handle_canonical_query_with_classification()`: Orchestrates the 4-step classification workflow
+
+   The agent has no local file reading, no embeddings, no vector database - everything comes from MCP.
 
 <br><br>
 
@@ -563,7 +600,7 @@ demo
 
 <br><br>
 
-8. Now try some individual queries. Test both weather queries (uses old RAG workflow) and data analysis queries (uses new classification workflow):
+8. Now try some individual queries. You can pick a couple from the list below. Test both weather queries (uses MCP vector search) and data analysis queries (uses classification workflow):
 
 ```
 What's the weather like at our Chicago office?
@@ -576,15 +613,35 @@ What offices opened after 2014?
 
 <br><br>
 
-9. Notice how the agent automatically routes weather queries to the RAG workflow and data queries to the classification workflow. The classification workflow provides much more consistent and structured responses. If there are any LLM timeout issues, the agent includes a fallback that provides calculated results directly.
+9. Observe the workflow differences:
+
+    **Weather queries** ("What's the weather at HQ?"):
+    - Agent calls MCP's `vector_search_locations("What's the weather at HQ?")`
+    - MCP performs semantic search in its vector database
+    - Returns: "HQ 123 Main St, New York, NY..."
+    - Agent extracts location and calls `geocode_location` and `get_weather`
+
+    **Analytics queries** ("Which office has the most employees?"):
+    - Agent calls MCP's `classify_canonical_query(...)`
+    - MCP returns: "employee_analysis"
+    - Agent calls `get_query_template("employee_analysis")`
+    - Agent calls `get_filtered_office_data(columns=["employees", "city"])`
+    - Agent executes LLM locally with template + data
+
+10. Notice the architectural benefits:
+   - **Weather queries**: Use MCP's semantic vector search (RAG via server)
+   - **Analytics queries**: Use MCP's classification system (structured via server)
+   - **No duplication**: MCP server owns all data, agent is pure orchestration
+   - **Scalability**: Multiple agents could use the same MCP server
+   - **Fallback**: If LLM times out, agent provides calculated results directly
+
+   This centralized architecture follows best practices.
 
 <br><br>
 
-10. The power of this architecture is that you can add new canonical queries just by updating the server configuration - no agent code changes needed! Try typing 'exit' when done.
+10. The power of this architecture is that you can add new canonical queries just by updating the server configuration - no agent code changes needed. Type 'exit' when done to stop the agent and stop the server with Ctrl-C.
 
-<br><br>
 
-11. When finished testing, stop both the agent and server with Ctrl-C.
 
 <p align="center">
 **[END OF LAB]**
