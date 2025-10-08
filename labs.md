@@ -1,7 +1,7 @@
 # AI for App Development
 ## Building AI Apps that leverage agents, MCP, and RAG
 ## Session labs 
-## Revision 1.7 - 11/07/25
+## Revision 1.8 - 11/08/25
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -182,7 +182,7 @@ python agent.py
 code -d labs/common/lab3_server_solution.txt mcp_server.py
 ```
 
-![MCP server code](./images/31ai17.png?raw=true "MCP server code") 
+![MCP server code](./images/aiapps18.png?raw=true "MCP server code") 
 
 <br><br>
 
@@ -213,7 +213,7 @@ code tools/discover_tools.py
 python tools/discover_tools.py
 ```
 
-![Discovering tools](./images/31ai19.png?raw=true "Discovering tools") 
+![Discovering tools](./images/aiapps19.png?raw=true "Discovering tools") 
 
 <br><br>
 
@@ -227,7 +227,7 @@ code -d labs/common/lab3_agent_solution.txt mcp_agent.py
 
 7. Review and merge the changes as before. What we're highlighting in this step are the *System Prompt* that drives the LLM used by the agent, the connection with the MCP client at the /mcp/ endpoint, and the mpc calls to the tools on the server. When finished, close the tab to save the changes as before.
 
-![Agent using MCP client code](./images/31ai21.png?raw=true "Agent using MCP client code") 
+![Agent using MCP client code](./images/aiapps20.png?raw=true "Agent using MCP client code") 
 
 <br><br>
    
@@ -266,7 +266,7 @@ What is the weather in New York?
 
 <br><br>
 
-2. In our repository, we have some simple tools built around a popular vector database called Chroma. There are two files which will create a vector db (index) for the *.py files in our repo and another to do the same for the office pdf. You can look at the files either via the usual "code <filename>" method or clicking on [**tools/index_code.py**](./tools/index_code.py) or [**tools/index_pdf.py**](./tools/index_pdf.py).
+2. In our repository, we have some simple tools built around a popular vector database called Chroma. There are two files which will create a vector db (index) for the *.py files in our repo and another to do the same for the office pdf. You can look at the files either via the usual "code <filename>" method or clicking on [**tools/index_code.py**](./tools/index_code.py) or [**tools/index_pdf.py**](./tools/index_pdf.py). 
 
 ```
 code tools/index_code.py
@@ -275,7 +275,7 @@ code tools/index_pdf.py
 
 <br><br>
 
-3. Let's create a vector database of our local python files. Run the program to index those as below. You'll see the program loading the embedding model that will turn the code chunks into numeric represenations in the vector database and then it will read and index our *.py files.
+3. Let's create a vector database of our local python files. Run the program to index those as below. You'll see the program loading the embedding model that will turn the code chunks into numeric represenations in the vector database and then it will read and index our *.py files. **When you run the command below, there will be a very long pause while things get loaded.**
 
 ```
 python tools/index_code.py
