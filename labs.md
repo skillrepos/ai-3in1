@@ -231,7 +231,7 @@ code -d labs/common/lab3_agent_solution.txt mcp_agent.py
 
 <br><br>
    
-8. After you've made and saved the changes, you can run the client in the terminal with the command below.
+8. After you've made and saved the changes, you can run the client in the terminal with the command below. **Note that there will be a long pause initially while the model is loaded and processed before you get the final answer. This could be on the order of minutes.**
 
 ```
 python mcp_agent.py
