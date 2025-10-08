@@ -263,16 +263,21 @@ def main():
     
     # Main query interface
     st.header("Ask Your Question")
-    
-    # Query input
-    user_query = st.text_input(
-        "Enter your question:",
-        placeholder="e.g., Which office has the highest revenue?",
-        help="Ask about office data, weather, or any business metrics"
-    )
-    
-    # Submit button
-    if st.button("Ask Assistant", type="primary") or user_query:
+
+    # Query input with Enter key support
+    with st.form(key="query_form", clear_on_submit=True):
+        user_query = st.text_input(
+            "Enter your question:",
+            placeholder="e.g., Which office has the highest revenue?",
+            help="Ask about office data, weather, or any business metrics",
+            key="user_query_input"
+        )
+
+        # Submit button
+        submit_button = st.form_submit_button("Ask Assistant", type="primary", use_container_width=True)
+
+    # Process query when form is submitted
+    if submit_button and user_query:
         if user_query.strip():
             
             # Display the user query

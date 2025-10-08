@@ -264,6 +264,40 @@ except Exception as e:
     print(f"   • MCP server will populate it on first startup")
 
 # ═══════════════════════════════════════════════════════════════════
+# 5. Optional: Test MCP Server Connection (for Streamlit)
+# ═══════════════════════════════════════════════════════════════════
+print("\n[Optional] Testing MCP server connection...")
+
+try:
+    import requests
+
+    MCP_ENDPOINT = "http://127.0.0.1:8000/mcp/"
+
+    # Try to connect to MCP server
+    response = requests.post(
+        MCP_ENDPOINT,
+        json={"jsonrpc": "2.0", "method": "tools/list", "id": 1},
+        timeout=2
+    )
+
+    if response.status_code == 200:
+        print(f"   ✓ MCP server is running at {MCP_ENDPOINT}")
+        print(f"   • Streamlit app will connect instantly")
+    else:
+        print(f"   ⚠️  MCP server responded with status {response.status_code}")
+
+except requests.exceptions.ConnectionError:
+    print(f"   ℹ️  MCP server not running (this is OK)")
+    print(f"   • Start it before running Streamlit app:")
+    print(f"     python labs/common/lab6_mcp_server_solution.txt")
+
+except ImportError:
+    print(f"   ⚠️  requests not installed (skipping MCP check)")
+
+except Exception as e:
+    print(f"   ⚠️  Could not check MCP server: {type(e).__name__}")
+
+# ═══════════════════════════════════════════════════════════════════
 # Summary
 # ═══════════════════════════════════════════════════════════════════
 print("\n" + "=" * 60)
@@ -274,5 +308,10 @@ print("\nReady to run:")
 print("  • Lab 3: python mcp_agent.py")
 print("  • Lab 5: python rag_agent.py")
 print("  • Lab 7: python rag_agent_classification.py")
+print("  • Lab 8: streamlit run streamlit_app.py")
+print("\nFor Streamlit (Lab 8):")
+print("  1. Start MCP server: python labs/common/lab6_mcp_server_solution.txt")
+print("  2. Start Streamlit: streamlit run streamlit_app.py")
+print("  3. First query will be instant (models already loaded!)")
 print("\nNote: Models will remain in memory until Ollama is restarted.")
 print("=" * 60)

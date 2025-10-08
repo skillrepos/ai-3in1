@@ -639,7 +639,7 @@ What offices opened after 2014?
 
 <br><br>
 
-10. The power of this architecture is that you can add new canonical queries just by updating the server configuration - no agent code changes needed. Type 'exit' when done to stop the agent and stop the server with Ctrl-C.
+10. The power of this architecture is that you can add new canonical queries just by updating the server configuration - no agent code changes needed. Type 'exit' when done to stop the agent.
 
 
 
@@ -652,29 +652,26 @@ What offices opened after 2014?
 
 **Purpose: In this lab, we'll create a modern web interface for our classification-based RAG agent using Streamlit. This provides a user-friendly way to interact with our canonical query system.**
 
-1. First, ensure you have Streamlit installed. If not already done, install it with:
-
-```
-pip install streamlit plotly pandas
-```
-
-<br><br>
-
-2. We've created two Streamlit applications for you:
+1. For efficiency, we've already created a Streamlit application for you:
    - `streamlit_app.py` - A user-friendly interface for general use
-   - `app.py` - An advanced version optimized for Hugging Face Spaces with embedded fallback
+ 
+<br><br>
+
+2. Open it up and take a look at the code for it - either via [**streamlit_app.py**](./scripts/streamlit_app.py) or by using the command below.
+
+```
+code streamlit_app.py
+```
+
+3. Before we use the Streamlit app, make sure your MCP classification server from Lab 6 is running:
+
+```
+python mcp_server_classification.py
+```
 
 <br><br>
 
-3. Let's start with the basic Streamlit app. First, make sure your MCP classification server from Lab 6 is running:
-
-```
-python labs/common/lab6_mcp_server_starter.py
-```
-
-<br><br>
-
-4. In a second terminal, start the Streamlit application:
+4. In an unused terminal, start the Streamlit application:
 
 ```
 streamlit run streamlit_app.py
@@ -682,7 +679,10 @@ streamlit run streamlit_app.py
 
 <br><br>
 
-5. Your web browser should automatically open to the Streamlit app (usually at http://localhost:8501). If not, navigate there manually.
+5. Your codespace will start the Streamlit app running at http://localhost:8501. You will probably see a dialog pop up to open Open a browser tab to that location. If it tries to take you to another codespace, just close that new codespace tab and try again.
+
+
+![Running the Streamlit app](./images/aiapps23.png?raw=true "Running the Streamlit app") 
 
 <br><br>
 
@@ -702,10 +702,10 @@ streamlit run streamlit_app.py
 <br><br>
 
 8. Notice how the web interface shows:
-   - 🔍 Query analysis and intent detection
-   - 🌤️ or 📊 Workflow routing (weather vs. data analysis)
-   - ⚙️ AI processing with the classification system
-   - ✅ Completion with structured results
+   - Query analysis and intent detection
+   - Workflow routing (weather vs. data analysis)
+   - AI processing with the classification system
+   - Completion with structured results
 
 <br><br>
 
@@ -717,17 +717,9 @@ streamlit run streamlit_app.py
 
 <br><br>
 
-10. For comparison, also try the advanced version optimized for cloud deployment:
 
-```
-streamlit run app.py
-```
 
-This version includes embedded fallback logic that works even without the MCP server, making it suitable for cloud deployment.
-
-<br><br>
-
-11. **Memory Dashboard (Already Integrated):** The Streamlit apps now include a conversation memory dashboard in the sidebar! Look for:
+10. The Streamlit app includes a conversation memory dashboard in the sidebar (a feature of Streamlit). Look for:
     - **Total Exchanges**: Counter showing how many conversations have been stored
     - **Estimated Tokens**: Approximate token usage with progress bar
     - **Offices Discussed**: Entity tracking showing which offices were mentioned
@@ -736,31 +728,15 @@ This version includes embedded fallback logic that works even without the MCP se
 
 <br><br>
 
-12. The memory dashboard provides:
-    - **Visual Feedback**: See memory usage in real-time
-    - **Token Management**: Warning when approaching context limits
-    - **Entity Tracking**: Automatic extraction and display of mentioned offices
-    - **Conversation History**: Review recent exchanges
-
-<br><br>
-
-13. Try using the memory features:
+11. Try using the memory features:
     - Ask about multiple offices and watch the "Offices Discussed" list grow
     - Make several queries and see the token counter increase
     - Click "View History" to see recent exchanges
     - Click "Clear Memory" to reset and start fresh
 
-<br><br>
 
-14. The memory integration combines concepts from Lab 2.5 and Lab 5:
-    - **Session State Memory**: Streamlit's session state stores conversations during the session
-    - **Visual Dashboard**: Makes memory visible and manageable for users
-    - **Token Estimation**: Helps prevent context overflow
-    - **Entity Extraction**: Tracks business entities (offices) across conversations
 
-<br><br>
-
-15. When finished, stop the Streamlit apps with Ctrl-C in their respective terminals.
+12. When finished, stop the Streamlit apps with Ctrl-C in their respective terminals.
 
 <p align="center">
 **[END OF LAB]**
