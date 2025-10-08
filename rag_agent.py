@@ -8,7 +8,6 @@ with MCP tool calling to provide context-aware weather information.
 Key Components
 --------------
 1. **Vector Search (ChromaDB)**
-  
 
 2. **Location Extraction (Pattern Matching + LLM)**
    - Extracts coordinates directly from text when available
@@ -24,7 +23,6 @@ Key Components
    - Gracefully handles MCP server errors
    - Validates tool responses before processing
    - Provides clear user feedback on failures
-
 
 
 Prerequisites
@@ -136,7 +134,7 @@ def guess_city(texts: List[str]) -> Optional[str]:
 
 async def geocode_via_mcp(name: str, mcp_client: Client) -> Optional[Tuple[float, float]]:
     """
-   
+
     Args:
         name: Location name to geocode (e.g., "Paris" or "Austin, TX")
         mcp_client: Active MCP client connection
@@ -146,7 +144,6 @@ async def geocode_via_mcp(name: str, mcp_client: Client) -> Optional[Tuple[float
     """
     async def _lookup(n: str):
         try:
-            
             geo_data = unwrap(result)
 
             if not isinstance(geo_data, dict):
@@ -209,24 +206,19 @@ async def run(prompt: str) -> None:
     """
     Execute the complete RAG + MCP workflow.
 
- 
-
     Args:
         prompt: Natural language user query about weather
     """
     embed_model = SentenceTransformer(EMBED_MODEL_NAME)
     coll        = open_collection()
 
- 
     rag_hits = rag_search(prompt, embed_model, coll)
     top_hit  = rag_hits[0] if rag_hits else ""
     if top_hit:
         print("\nTop RAG hit:\n", top_hit, "\n")
 
-  
     coords = find_coords([top_hit, prompt])
 
- 
     async with Client(MCP_ENDPOINT) as mcp:
         if not coords:
             city_str = (
@@ -245,9 +237,7 @@ async def run(prompt: str) -> None:
         lat, lon = coords
         print(f"Using coordinates: {lat:.4f}, {lon:.4f}\n")
 
- 
         try:
-    
         except ToolError as e:
             print(f"Error calling get_weather: {e}")
             return
@@ -269,14 +259,11 @@ async def run(prompt: str) -> None:
             print("Weather service did not return temperature data.")
             return
 
-
         try:
- 
             temp_f = float(unwrap(tf_raw))
         except (ToolError, ValueError) as e:
             print(f"Temperature conversion failed: {e}")
             return
-
 
         print(f"Weather: {cond}, {temp_f:.1f} °F\n")
 
