@@ -31,7 +31,7 @@ import asyncio
 import json
 import os
 import re
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
@@ -359,10 +359,24 @@ async def handle_weather_query(prompt: str) -> str:
     3. Uses MCP server's geocode and weather tools to get weather data
     """
     async with Client(MCP_ENDPOINT) as mcp:
+        # Extract office name from prompt for better vector search
+        # Look for specific patterns like "HQ", "headquarters", office names, or city names
+        search_query = prompt
+        prompt_lower = prompt.lower()
+
+        # Extract key terms (prioritize specific office names over generic words)
+        office_keywords = ["hq", "headquarters", "main office", "head office"]
+        for keyword in office_keywords:
+            if keyword in prompt_lower:
+                # Use just the keyword for more precise matching
+                search_query = keyword.upper() if keyword in ["hq"] else keyword.title()
+                print(f"🔍 Extracted office term: '{search_query}'")
+                break
+
         # Vector search via MCP (RAG) - semantic search capability
-        print(f"Searching for office location: '{prompt}'")
+        print(f"Searching for office location: '{search_query}'")
         try:
-            search_result = await mcp.call_tool("vector_search_locations", {"query": prompt, "top_k": 1})
+            search_result = await mcp.call_tool("vector_search_locations", {"query": search_query, "top_k": 1})
             search_data = unwrap(search_result)
 
             if "error" in search_data:
@@ -422,26 +436,39 @@ async def handle_weather_query(prompt: str) -> str:
             safe_line = re.sub(r"\d+\s+\S+(?:\s+\S+)*,?\s*", "", top_hit, count=1).strip()
             city_part = ", ".join(top_hit.split(",", 2)[1:]).strip() or "N/A"
 
-            llm = ChatOllama(model=MODEL, temperature=0.2)
+            # Try to generate LLM summary, fall back to simple format if Ollama isn't available
+            try:
+                llm = ChatOllama(model=MODEL, temperature=0.2)
 
-            system_msg = (
-                "You are a helpful business assistant. Provide a concise weather summary."
-            )
+                system_msg = (
+                    "You are a helpful business assistant. Provide a concise weather summary."
+                )
 
-            user_msg = (
-                f"Create a weather summary:\n"
-                f"• Office: {safe_line}\n"
-                f"• Location: {city_part}\n"
-                f"• Weather: {cond}, {temp_f:.1f} °F\n\n"
-                "Format: Office name + location, current weather, interesting fact about the city."
-            )
+                user_msg = (
+                    f"Create a weather summary:\n"
+                    f"• Office: {safe_line}\n"
+                    f"• Location: {city_part}\n"
+                    f"• Weather: {cond}, {temp_f:.1f} °F\n\n"
+                    "Format: Office name + location, current weather, interesting fact about the city."
+                )
 
-            summary = llm.invoke([
-                {"role": "system", "content": system_msg},
-                {"role": "user", "content": user_msg}
-            ]).content.strip()
+                summary = llm.invoke([
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": user_msg}
+                ]).content.strip()
 
-            return summary
+                return summary
+
+            except Exception as llm_error:
+                # Fallback if Ollama isn't running or times out
+                print(f"⚠️  LLM unavailable ({type(llm_error).__name__}), using simple format")
+                return (
+                    f"**Weather Report**\n\n"
+                    f"Location: {safe_line} ({city_part})\n"
+                    f"Current conditions: {cond}\n"
+                    f"Temperature: {temp_f:.1f}°F ({temp_c:.1f}°C)\n\n"
+                    f"_Note: Make sure Ollama is running for enhanced summaries. Run: `ollama serve &`_"
+                )
 
         except ToolError as e:
             return f"Weather error: {e}"

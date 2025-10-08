@@ -22,7 +22,7 @@ import asyncio
 import json
 import os
 import re
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
@@ -333,7 +333,18 @@ async def handle_weather_query(prompt: str) -> str:
             print(f"\n📍 Top RAG hit: {top_hit[:100]}...\n")
 
         except Exception as e:
-            return f"Failed to search for location: {e}"       
+            return f"Failed to search for location: {e}"
+        # Extract coordinates
+        coords = find_coords([top_hit, prompt])
+        if not coords:
+            city_str = (
+                find_city_state([top_hit, prompt])
+                or find_city_country([top_hit, prompt])
+                or guess_city([top_hit, prompt])
+            )
+            if city_str:
+                print(f"Geocoding '{city_str}'...")
+                coords = await geocode_via_mcp(city_str, mcp)
 
         if not coords:
             return "Could not determine location for weather lookup."
@@ -386,7 +397,18 @@ async def handle_weather_query(prompt: str) -> str:
                 {"role": "user", "content": user_msg}
             ]).content.strip()
 
-            return summary
+                return summary
+
+            except Exception as llm_error:
+                # Fallback if Ollama isn't running or times out
+                print(f"⚠️  LLM unavailable ({type(llm_error).__name__}), using simple format")
+                return (
+                    f"**Weather Report**\n\n"
+                    f"Location: {safe_line} ({city_part})\n"
+                    f"Current conditions: {cond}\n"
+                    f"Temperature: {temp_f:.1f}°F ({temp_c:.1f}°C)\n\n"
+                    f"_Note: Make sure Ollama is running for enhanced summaries. Run: `ollama serve &`_"
+                )
 
         except ToolError as e:
             return f"Weather error: {e}"
