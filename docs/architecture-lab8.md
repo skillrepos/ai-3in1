@@ -14,21 +14,21 @@ graph TB
             Display[Response Display]
 
             subgraph "Memory Dashboard"
-                Metrics[Total Exchanges Token Counter]
-                Entities[Offices Discussed]
-                History[Conversation History]
-                Controls[Clear / View Buttons]
+                Metrics["Total Exchanges & Token Counter"]
+                Entities["Offices Discussed"]
+                History["Conversation History"]
+                Controls["Clear & View Buttons"]
             end
         end
 
         subgraph "Backend (Streamlit Server)"
-            Session[Session State conversation_history mentioned_entities]
+            Session["Session State<br/>conversation_history<br/>mentioned_entities"]
 
-            Router[Query Router detect_query_type]
+            Router["Query Router<br/>detect_query_type"]
 
             subgraph "Processing"
-                Progress["Progress Indicators (1/4) (2/4) (3/4) (4/4)"]
-                Processor[process_query_with_progress]
+                Progress["Progress Indicators<br/>(1/4) (2/4) (3/4) (4/4)"]
+                Processor["process_query_with_progress"]
             end
         end
 
@@ -36,7 +36,7 @@ graph TB
         Input --> Router
         Router --> Processor
         Processor --> Progress
-        Processor --> Agent[RAG Agent Lab 7]
+        Processor --> Agent["RAG Agent (Lab 7)"]
         Agent --> Display
         Display --> Session
         Session --> Metrics
@@ -45,7 +45,7 @@ graph TB
     end
 
     subgraph "MCP Server :8000"
-        MCPServer[Classification + Weather Tools]
+        MCPServer["Classification + Weather Tools"]
     end
 
     Agent <-->|MCP Protocol| MCPServer
@@ -92,9 +92,9 @@ graph TB
     end
 
     subgraph "Memory Calculations"
-        TotalEx[Total Exchanges = len(history)]
-        Tokens[Estimated Tokens = chars / 4]
-        Progress[Token Progress = tokens / max_tokens]
+        TotalEx["Total Exchanges = len(history)"]
+        Tokens["Estimated Tokens = chars / 4"]
+        Progress["Token Progress = tokens / max_tokens"]
     end
 
     History --> TotalEx
@@ -153,21 +153,21 @@ sequenceDiagram
 graph TB
     subgraph "Memory Dashboard (Sidebar)"
         subgraph "Metrics Section"
-            M1[Total Exchanges st.metric]
-            M2[Estimated Tokens st.metric]
-            M3[Token Progress Bar st.progress]
-            M4[Warning if > 3000 st.warning]
+            M1["Total Exchanges (st.metric)"]
+            M2["Estimated Tokens (st.metric)"]
+            M3["Token Progress Bar (st.progress)"]
+            M4["Warning if > 3000 (st.warning)"]
         end
 
         subgraph "Entity Tracking"
-            E1[Offices Discussed List of cities]
-            E2[Entity Extraction Keyword matching]
+            E1["Offices Discussed<br/>List of cities"]
+            E2["Entity Extraction<br/>Keyword matching"]
         end
 
         subgraph "Controls"
-            C1[Clear Memory st.button]
-            C2[View History st.button]
-            C3[History Expander st.expander]
+            C1["Clear Memory (st.button)"]
+            C2["View History (st.button)"]
+            C3["History Expander (st.expander)"]
         end
 
         M1 --> M2
@@ -285,13 +285,13 @@ st.session_state.conversation_history.append(exchange)
 ```mermaid
 graph LR
     subgraph "Session State Memory"
-        E1["Exchange 1 Q - Revenue? A - NY $85M T - 10 -30 -15"]
-        E2["Exchange 2 Q - Weather Paris? A - 72°F Clear T - 10 -31 -42"]
-        E3["Exchange 3 Q - Most employees? A - NY 120 T - 10 -32 -18"]
+        E1["Exchange 1<br/>Q: Revenue?<br/>A: NY $85M<br/>T: 10:30:15"]
+        E2["Exchange 2<br/>Q: Weather Paris?<br/>A: 72°F Clear<br/>T: 10:31:42"]
+        E3["Exchange 3<br/>Q: Most employees?<br/>A: NY 120<br/>T: 10:32:18"]
 
-        Entities["Entities Tracked - • New York • Paris"]
+        Entities["Entities Tracked<br/>• New York<br/>• Paris"]
 
-        Stats["Metrics - Exchanges - 3 Tokens - ~450 Progress - 11%"]
+        Stats["Metrics<br/>Exchanges: 3<br/>Tokens: ~450<br/>Progress: 11%"]
     end
 
     E1 --> Stats
@@ -312,21 +312,21 @@ graph LR
 ```mermaid
 graph TB
     subgraph "Streamlit Page"
-        Header["Header - AI Office Assistant"]
+        Header["Header<br/>AI Office Assistant"]
 
         subgraph "Main Column"
-            Input[Query Input Box]
-            Button[Ask Assistant Button]
-            Progress[Processing Steps Display]
-            Result[Response Display]
-            Insights[Query Insights Metrics]
+            Input["Query Input Box"]
+            Button["Ask Assistant Button"]
+            Progress["Processing Steps Display"]
+            Result["Response Display"]
+            Insights["Query Insights Metrics"]
         end
 
         subgraph "Sidebar"
-            Status[System Status MCP Server Check]
-            Examples[Query Examples]
-            AvailData[Available Data Info]
-            MemDash[Memory Dashboard]
+            Status["System Status<br/>MCP Server Check"]
+            Examples["Query Examples"]
+            AvailData["Available Data Info"]
+            MemDash["Memory Dashboard"]
         end
 
         Header --> Main
