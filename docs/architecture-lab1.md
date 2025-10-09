@@ -120,3 +120,7 @@ Response: The capital of France is Paris.
 - **Complexity**: Low
 - **Dependencies**: None (self-contained)
 - **Latency**: ~2-5 seconds per query (local CPU/GPU)
+
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**

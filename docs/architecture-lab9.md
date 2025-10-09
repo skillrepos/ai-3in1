@@ -442,3 +442,7 @@ graph LR
 5. **Security**: No sensitive data in public space
 6. **Performance**: Optimize for cold starts
 7. **Documentation**: Clear README for users
+
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**

@@ -247,3 +247,7 @@ POST /mcp/call
 5. **Versioning**: Server can manage tool versions
 6. **Language Agnostic**: Agents can be in different languages
 
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**
+

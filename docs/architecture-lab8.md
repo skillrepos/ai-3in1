@@ -445,3 +445,7 @@ with col3:
 - **MCP Server**: Must be running for full functionality
 - **Fallback**: `app.py` has embedded logic for cloud deployment
 - **State**: Session state lost on page refresh (not persistent)
+
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**

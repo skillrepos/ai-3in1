@@ -447,3 +447,7 @@ except Exception:
 3. **Hybrid Systems**: Structured + unstructured data
 4. **Intelligent Assistants**: Route to appropriate processing
 5. **Production Agents**: Robust fallback handling
+
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**

@@ -385,3 +385,7 @@ END FOR
 5. **Simplicity**
    - No HTML/JavaScript needed
    - Pure Python for web UIs
+
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**

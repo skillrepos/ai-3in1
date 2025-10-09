@@ -307,3 +307,7 @@ Each file contains:
 - VS Code Mermaid extension
 - mermaid.live (online editor)
 - mermaid-cli (`mmdc -i input.md -o output.png`)
+
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**

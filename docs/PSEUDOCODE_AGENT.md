@@ -525,3 +525,7 @@ END FUNCTION
 4. **LLM as Presenter** - AI converts raw data into natural language
 5. **Async Operations** - Weather API calls happen asynchronously
 6. **Error Handling** - Multiple fallbacks ensure robustness
+
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**

@@ -173,3 +173,7 @@ The **classification & prompt templates** approach represents the most sophistic
 5. **Simplifies development** by reducing agent complexity
 
 This architecture transforms canonical queries from hardcoded agent logic into a **managed query service** that multiple agents can leverage consistently.
+
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**

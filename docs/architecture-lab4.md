@@ -266,3 +266,7 @@ graph TB
 3. **Question Answering**: Retrieve context for answers
 4. **Recommendation**: Find similar items
 5. **RAG Foundation**: Retrieval for generation (Lab 5)
+
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**

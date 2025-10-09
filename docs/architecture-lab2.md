@@ -139,3 +139,7 @@ Use TAO format:
 - **Dependencies**: Ollama, requests library
 - **Tools**: 2 (weather API + converter)
 - **LLM Calls**: 2 per query (plan + format)
+
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**

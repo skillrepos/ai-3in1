@@ -643,3 +643,7 @@ Benefits:
 ```
 
 This MCP server demonstrates a **production-ready pattern** for building AI agents with business intelligence capabilities!
+
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**

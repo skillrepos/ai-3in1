@@ -182,6 +182,10 @@ Example: "What's the weather in Seattle?"
 
 **Key Insight:** The best AI systems combine multiple approaches based on the task at hand!
 
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**
+
 ## Workshop Learning Objectives
 
 Students will learn:

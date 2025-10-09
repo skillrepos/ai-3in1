@@ -289,3 +289,7 @@ flowchart TD
 5. **Scalable**: Add more documents without model changes
 6. **Contextual**: Combines retrieval with reasoning
 
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**
+

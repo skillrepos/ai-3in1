@@ -588,3 +588,7 @@ formatted = template.format(year_threshold=2014)
 3. **Reporting**: Standardized query responses
 4. **Multi-client Systems**: One server, many clients
 5. **Version Management**: Server handles query evolution
+
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**

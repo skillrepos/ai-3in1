@@ -308,3 +308,7 @@ These Mermaid diagrams render in:
 **Created:** 2025-10-06
 **Course:** AI 3-in-1: Agents, RAG and Local Models
 **Version:** 2.6
+
+---
+
+**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**
