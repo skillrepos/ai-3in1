@@ -184,6 +184,8 @@ Example: "What's the weather in Seattle?"
 
 ---
 
+For educational use only by the attendees of our workshops.
+
 **For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**
 
 ## Workshop Learning Objectives

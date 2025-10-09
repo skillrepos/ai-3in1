@@ -43,3 +43,7 @@ You can either open it in a separate browser instance or open it in the codespac
 To do this, when logged in to GitHub, go to https://github.com/settings/codespaces and scroll down on that page until you see the *Default idle timeout* section. Adjust the value as desired.
 
 ![Changing codespace idle timeout value](./images/31ai5.png?raw=true "Changing codespace idle timeout value")
+
+---
+
+For educational use only by the attendees of our workshops.

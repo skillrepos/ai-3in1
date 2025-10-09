@@ -26,3 +26,6 @@ license: mit
    - "Which office has the most employees?"
    - "Show me efficiency analysis"
    - "What's the average revenue across all offices?"
+---
+
+For educational use only by the attendees of our workshops.

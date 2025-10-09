@@ -861,6 +861,8 @@ hf repo create --repo-type space --space_sdk docker aiapp
 </p>
 </br></br>
 
+For educational use only by the attendees of our workshops.
+
 <p align="center">
 **(c) 2025 Tech Skills Transformations and Brent C. Laster. All rights reserved.**
 </p>

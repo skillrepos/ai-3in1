@@ -548,4 +548,6 @@ This pattern is production-ready and scales from single agents to enterprise dep
 
 ---
 
+For educational use only by the attendees of our workshops.
+
 **For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**
