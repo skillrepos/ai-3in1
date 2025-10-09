@@ -1,7 +1,7 @@
 # AI for App Development
 ## Building AI Apps that leverage agents, MCP, and RAG
 ## Session labs 
-## Revision 2.2 - 10/09/25
+## Revision 2.3 - 10/09/25
 ## (c) 2025 Tech Skills Transformations
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
@@ -212,7 +212,7 @@ python mcp_server.py
 
 4. Since this terminal is now tied up with the running server, we need to have a second terminal to use to work with the client. So that we can see the server responses, let's just open another terminal side-by-side with this one. To do that, over in the upper right section of the *TERMINAL* panel, find the plus sign and click on the downward arrow next to it. (See screenshot below.) Then select "Split Terminal" from the popup menu. Then click into that terminal to do the steps for the rest of the lab. (FYI: If you want to open another full terminal at some point, you can just click on the "+" itself and not the down arrow.)
 
-![Opening a second terminal](./images/aiapp38.png?raw=true "Opening a second terminal") 
+![Opening a second terminal](./images/aiapps38.png?raw=true "Opening a second terminal") 
 
 <br><br>
 
