@@ -1,7 +1,7 @@
 # AI for App Development
 ## Building AI Apps that leverage agents, MCP, and RAG
 ## Session labs 
-## Revision 2.5 - 10/09/25
+## Revision 2.6 - 10/09/25
 ## (c) 2025 Tech Skills Transformations
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
@@ -653,18 +653,18 @@ What offices opened after 2014?
 
 **Purpose: In this lab, we'll create a modern web interface for our classification-based RAG agent using Streamlit. This provides a user-friendly way to interact with our canonical query system.**
 
-1. For efficiency, we've already created a Streamlit application for you:
-   - `streamlit_app.py` - A user-friendly interface for general use
+1. We've already created the start of a Streamlit app that leverages our rag_classification agent. As usual, diff and merge so you can see key parts and complete it.
+
+```
+code -d labs/common/lab8_streamlit_solution.txt streamlit_app.py
+```
+
+![app code](./images/aiapps42.png?raw=true "app code") 
+
  
 <br><br>
 
-2. Open it up and take a look at the code for it - either via [**streamlit_app.py**](./scripts/streamlit_app.py) or by using the command below.
-
-```
-code streamlit_app.py
-```
-
-![app code](./images/aiapps27.png?raw=true "app code") 
+2. When done reviewing and merging, close the diff tab as usual.
 
 <br><br>
 
@@ -688,9 +688,7 @@ streamlit run streamlit_app.py
 
 <br><br>
 
-5. Your codespace will start the Streamlit app running at http://localhost:8501. You will probably see a dialog pop up to open Open a browser tab to that location. If you can't open it via the dialog, then go to the *PORTS* tab (next to *TERMINAL*), find the row for *8501* and then hover over the *Forwarded Address* column and click on the "globe icon".  See second screenshot below.
-
-![Running the Streamlit app](./images/aiapps23.png?raw=true "Running the Streamlit app") 
+5. Your codespace will start the Streamlit app running at http://localhost:8501. You will probably see a dialog pop up to open Open a browser tab to that location. That does not always work. The recommend approach is to go to the *PORTS* tab (next to *TERMINAL*), find the row for *8501* and then hover over the *Forwarded Address* column and click on the "globe icon".  See screenshot below.
 
 ![Running the Streamlit app](./images/aiapps30.png?raw=true "Running the Streamlit app") 
 
