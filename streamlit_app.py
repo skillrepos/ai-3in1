@@ -13,7 +13,6 @@ Features:
 """
 
 import asyncio
-import streamlit as st
 import time
 import json
 from pathlib import Path
@@ -23,8 +22,6 @@ from datetime import datetime
 # Add current directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-# Import our agent
-from rag_agent_classification import process_query
 
 # Page configuration
 st.set_page_config(
@@ -34,7 +31,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better appearance
 st.markdown("""
 <style>
     .main-header {
@@ -109,15 +105,6 @@ async def process_query_with_progress(user_query):
         time.sleep(0.5)  # Simulate processing time
         
         # Step 2: Route Detection
-        user_lower = user_query.lower()
-        weather_keywords = ["weather", "temperature", "forecast", "conditions", "climate"]
-        is_weather = any(keyword in user_lower for keyword in weather_keywords)
-        
-        with step2:
-            if is_weather:
-                st.markdown('<div class="processing-step">[2/4] Weather query detected - using RAG workflow</div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<div class="processing-step">[2/4] Data analysis query detected - using classification workflow</div>', unsafe_allow_html=True)
         
         time.sleep(0.5)
         
@@ -127,10 +114,7 @@ async def process_query_with_progress(user_query):
         
         # Actually process the query with timeout
         try:
-            print(f"\n[Streamlit] Starting query processing: {user_query}")
-            # Use asyncio.wait_for to add a timeout (300 seconds for LLM processing)
-            result = await asyncio.wait_for(process_query(user_query), timeout=300.0)
-            print(f"[Streamlit] Query processing completed, result length: {len(result) if result else 0}")
+
 
             with step4:
                 st.markdown('<div class="processing-step">[4/4] Analysis complete!</div>', unsafe_allow_html=True)
@@ -153,13 +137,7 @@ async def process_query_with_progress(user_query):
 def main():
     """Main Streamlit application."""
 
-    # Initialize session state for conversation memory
-    if 'conversation_history' not in st.session_state:
-        st.session_state.conversation_history = []
-    if 'mentioned_entities' not in st.session_state:
-        st.session_state.mentioned_entities = {'offices': set(), 'queries': []}
-
-    # Header
+     # Header
     st.markdown('<h1 class="main-header">AI Office Assistant</h1>', unsafe_allow_html=True)
     st.markdown('<p style="text-align: center; color: #666;">Ask questions about office data, weather, and more using natural language</p>', unsafe_allow_html=True)
 
@@ -287,8 +265,6 @@ def main():
             # Process the query
             with st.spinner("Processing your question..."):
                 try:
-                    # Run async function in streamlit
-                    result, error = asyncio.run(process_query_with_progress(user_query))
                     
                     if error:
                         st.error(f"Error: {error}")
@@ -299,13 +275,6 @@ def main():
                         else:
                             st.info("**Alternative**: You can also use the embedded version that doesn't require external services:\n```\nstreamlit run app.py\n```")
                     elif result:
-                        # Store in conversation memory
-                        exchange = {
-                            'query': user_query,
-                            'response': result,
-                            'timestamp': datetime.now().strftime("%H:%M:%S")
-                        }
-                        st.session_state.conversation_history.append(exchange)
 
                         # Extract and track entities (simple keyword matching)
                         office_names = ['Chicago', 'New York', 'San Francisco', 'Austin',
