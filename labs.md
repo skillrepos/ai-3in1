@@ -1,7 +1,7 @@
 # AI for App Development
 ## Building AI Apps that leverage agents, MCP, and RAG
 ## Session labs 
-## Revision 2.3 - 10/09/25
+## Revision 2.4 - 10/09/25
 ## (c) 2025 Tech Skills Transformations
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
@@ -370,7 +370,7 @@ code -d labs/common/lab5_agent_solution.txt rag_agent.py
 
 <br><br>
 
-3. When you're done merging, close the tab as usual to save your changes. Now, in a terminal, start the MCP server running again:
+3. When you're done merging, close the tab as usual to save your changes. Now, if the MCP server is not still running from lab3, in a terminal, start it running again:
 
 ```
 python mcp_server.py
@@ -431,6 +431,10 @@ Tell me about the Southern office
 ```
 
 ![Running the updated RAG agent](./images/31ai31.png?raw=true "Running the updated RAG agent")
+
+<br><br>
+
+11. When done, you can stop the MCP server via Ctrl-C and "exit" out of the agent.
 
 <p align="center">
 **[END OF LAB]**
@@ -524,7 +528,7 @@ python tools/discover_tools.py
 
 8.  You should see several tool categories:
    - **New vector search tools**: `vector_search_locations`, `vector_search_analytics`
-   - **Classification tools**: `classify_canonical_query`, `get_query_template`
+   - **Classification tools**: `classify_canonical_query`, `get_query_template`, `list_canonical_queries`
    - **Data access tools**: `get_office_dataset`, `get_filtered_office_data`
    - **Validation tools**: `validate_query_parameters`
    - **Weather tools**: `get_weather`, `geocode_location`, `convert_c_to_f`
@@ -589,28 +593,7 @@ python rag_agent_classification.py
 
 <br><br>
 
-6. The agent will start and explain that it uses classification and prompt templates. Try the demo mode first to see several example queries:
-
-```
-demo
-```
-
-![Running the RAG agent](./images/aiapps11.png?raw=true "Running the RAG agent") 
-
-<br><br>
-
-7. You'll see the agent process various queries, showing the classification workflow in action:
-   - Classifying canonical query from user input
-   - Server suggests the best matching query type  
-   - Retrieving the appropriate prompt template
-   - Fetching required data columns
-   - Executing LLM locally with template + data
-
-![Running the RAG agent](./images/aiapps12.png?raw=true "Running the RAG agent") 
-
-<br><br>
-
-8. Now try some individual queries. You can pick a couple from the list below. Test both weather queries (uses MCP vector search) and data analysis queries (uses classification workflow):
+6. The agent will start and explain that it uses classification and prompt templates. You can try out some of the queries shown below. Note that some may take multiple minutes to process and respond.
 
 ```
 What's the weather like at our Chicago office?
@@ -621,9 +604,11 @@ Tell me about the Austin office
 What offices opened after 2014?
 ```
 
+![Running the RAG agent](./images/aiapps41.png?raw=true "Running the RAG agent") 
+
 <br><br>
 
-9. Observe the workflow differences:
+7. Observe the workflow differences:
 
     **Weather queries** ("What's the weather at HQ?"):
     - Agent calls MCP's `vector_search_locations("What's the weather at HQ?")`
@@ -638,7 +623,9 @@ What offices opened after 2014?
     - Agent calls `get_filtered_office_data(columns=["employees", "city"])`
     - Agent executes LLM locally with template + data
 
-10. Notice the architectural benefits:
+<br><br>
+
+8. Notice the architectural benefits:
    - **Weather queries**: Use MCP's semantic vector search (RAG via server)
    - **Analytics queries**: Use MCP's classification system (structured via server)
    - **No duplication**: MCP server owns all data, agent is pure orchestration
