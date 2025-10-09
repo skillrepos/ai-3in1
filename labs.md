@@ -1,12 +1,18 @@
 # AI for App Development
 ## Building AI Apps that leverage agents, MCP, and RAG
 ## Session labs 
-## Revision 2.4 - 10/09/25
+## Revision 2.5 - 10/09/25
 ## (c) 2025 Tech Skills Transformations
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
-**NOTE: To copy and paste in the codespace, you may need to use keyboard commands - CTRL-C and CTRL-V. Chrome may work best for this.**
+**NOTES**
+- To copy and paste in the codespace, you may need to use keyboard commands - CTRL-C and CTRL-V. Chrome may work best for this.
+- If your codespace has to be restarted, run these commands again!
+  ```
+  ollama serve &
+  python warmup_models.py
+  ```
 
 **Lab 1 - Using Ollama to run models locally**
 
