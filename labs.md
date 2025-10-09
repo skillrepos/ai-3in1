@@ -210,9 +210,9 @@ python mcp_server.py
 
 <br><br>
 
-4. Since this terminal is now tied up with the running server, we need to have a second terminal to use to work with the client. So that we can see the server responses, let's just open another terminal side-by-side with this one. To do that, find the icon that looks like a square with two column in the upper right of the terminal area and click it. (See screenshot below). Then click into that terminal to do the steps for the rest of the lab.
+4. Since this terminal is now tied up with the running server, we need to have a second terminal to use to work with the client. So that we can see the server responses, let's just open another terminal side-by-side with this one. To do that, over in the upper right section of the *TERMINAL* panel, find the plus sign and click on the downward arrow next to it. (See screenshot below.) Then select "Split Terminal" from the popup menu. Then click into that terminal to do the steps for the rest of the lab. (FYI: If you want to open another full terminal at some point, you can just click on the "+" itself and not the down arrow.)
 
-![Opening a second terminal](./images/aiapps5.png?raw=true "Opening a second terminal") 
+![Opening a second terminal](./images/aiapp38.png?raw=true "Opening a second terminal") 
 
 <br><br>
 
@@ -230,18 +230,18 @@ python tools/discover_tools.py
 6. Now, let's turn our attention to the agent that will use the MCP server through an MCP client interface. First, in the second terminal, run a diff command so we can build out the new agent.
 
 ```
-code -d labs/common/lab3_agent_solution.txt mcp_agent.py
+code -d labs/common/lab3_agent_solution_dynamic.txt mcp_agent.py
 ```
 
 <br><br>
 
 7. Review and merge the changes as before. What we're highlighting in this step are the *System Prompt* that drives the LLM used by the agent, the connection with the MCP client at the /mcp/ endpoint, and the mpc calls to the tools on the server. When finished, close the tab to save the changes as before.
 
-![Agent using MCP client code](./images/aiapps20.png?raw=true "Agent using MCP client code") 
+![Agent using MCP client code](./images/aiapps39.png?raw=true "Agent using MCP client code") 
 
 <br><br>
    
-8. After you've made and saved the changes, you can run the client in the terminal with the command below. **Note that there will be a long pause initially while the model is loaded and processed before you get the final answer. This could be on the order of minutes.**
+8. After you've made and saved the changes, you can run the client in the terminal with the command below. **Note that there may be a long pause initially while the model is loaded and processed before you get the final answer. This could be on the order of minutes.**
 
 ```
 python mcp_agent.py
@@ -255,7 +255,7 @@ python mcp_agent.py
 What is the weather in New York?
 ```
 
-![Agent using MCP client running](./images/31ai22.png?raw=true "Agent using MCP client running") 
+![Agent using MCP client running](./images/aiapps40.png?raw=true "Agent using MCP client running") 
 
 <br><br>
 
