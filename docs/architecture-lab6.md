@@ -1,13 +1,17 @@
 # Lab 6 Architecture: Building a Classification MCP Server
 
 ## Overview
-Lab 6 transforms the MCP server to use canonical query classification, creating a scalable architecture where the server manages query interpretation and templates.
+Lab 6 transforms the MCP server to use canonical query classification and adds a vector database layer for semantic search. The server manages query interpretation, templates, and provides both structured (CSV) and semantic (vector) data access.
 
 ## Detailed Architecture Diagram
 
 ```mermaid
 graph TB
     subgraph "Classification MCP Server :8000"
+        subgraph "Initialization on Startup"
+            Init[Load Embedding Model → Initialize ChromaDB → Populate Collections]
+        end
+
         subgraph "Query Classification"
             Classifier[Keyword Classifier]
             Mapper[Query → Canonical Mapping]
@@ -17,19 +21,34 @@ graph TB
             Queries[Canonical Queries: • revenue_stats • employee_analysis • efficiency_analysis • office_profile]
         end
 
-        subgraph "Data Layer"
+        subgraph "Vector Database Layer NEW!"
+            VDB[(ChromaDB ./mcp_chroma_db)]
+            Embed[SentenceTransformer all-MiniLM-L6-v2]
+            Coll1[office_locations collection PDF embeddings]
+            Coll2[office_analytics collection CSV embeddings]
+
+            VDB --> Coll1
+            VDB --> Coll2
+        end
+
+        subgraph "Structured Data Layer"
             CSV[(offices.csv)]
+            PDF[(offices.pdf)]
             Pandas[Pandas DataFrame]
         end
 
         subgraph "Tool Endpoints"
-            Tool1[@mcp.tool classify_canonical_query]
-            Tool2[@mcp.tool get_query_template]
-            Tool3[@mcp.tool get_filtered_office_data]
-            Tool4[@mcp.tool get_weather]
-            Tool5[@mcp.tool geocode_location]
+            Tool1["classify_canonical_query()"]
+            Tool2["get_query_template()"]
+            Tool3["get_filtered_office_data()"]
+            Tool4["vector_search_locations() NEW!"]
+            Tool5["vector_search_analytics() NEW!"]
+            Tool6["get_weather()"]
+            Tool7["geocode_location()"]
         end
 
+        Init --> Embed
+        Init --> VDB
         Classifier --> Mapper
         Mapper --> Queries
         Queries --> Tool2
@@ -37,30 +56,40 @@ graph TB
 
         Tool1 --> Classifier
         Tool3 --> Pandas
+        Tool4 --> VDB
+        Tool4 --> Embed
+        Tool5 --> VDB
+        Tool5 --> Embed
     end
 
     Client[Agent/Client] <-->|MCP Protocol| Tool1
     Client <-->|MCP Protocol| Tool2
     Client <-->|MCP Protocol| Tool3
+    Client <-->|MCP Protocol Semantic Search| Tool4
+    Client <-->|MCP Protocol Semantic Search| Tool5
 
     style Classifier fill:#e1f5ff
     style Queries fill:#fff4e1
+    style VDB fill:#fff4e1
+    style Embed fill:#ffe8e8
     style Pandas fill:#e8f5e9
-    style CSV fill:#ffe8e8
+    style CSV fill:#e8f5e9
+    style PDF fill:#e8f5e9
 ```
 
 ## Presentation Slide Diagram (Simple)
 
 ```mermaid
 flowchart LR
-    Query([Natural Language]) -->|1. Classify| Server[MCP Server Classification]
-    Server -->|2. Map to| Canonical[Canonical Query]
-    Canonical -->|3. Execute| Data[(CSV Data)]
-    Data -->|4. Result| Answer([Structured Answer])
+    Query([Natural Language]) -->|1. Classify or Search| Server[MCP Server]
+    Server -->|2a. Canonical Query| Canonical[Structured Data CSV]
+    Server -->|2b. Vector Search| Vector[Semantic Search ChromaDB]
+    Canonical -->|3. Result| Answer([Answer])
+    Vector -->|3. Result| Answer
 
     style Server fill:#4CAF50,color:#fff
     style Canonical fill:#2196F3,color:#fff
-    style Data fill:#FF9800,color:#fff
+    style Vector fill:#FF9800,color:#fff
 ```
 
 ## Classification Flow
@@ -132,7 +161,84 @@ CANONICAL_QUERIES = {
 }
 ```
 
-### 2. Keyword-Based Classifier
+### 2. Vector Database Layer (NEW in Lab 6!)
+
+**Architecture:**
+```python
+# Server initialization populates vector database on startup
+def _populate_vector_db():
+    embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+    chroma_client = chromadb.PersistentClient(path="./mcp_chroma_db")
+
+    # Two collections for different data sources
+    locations_coll = chroma_client.get_or_create_collection("office_locations")
+    analytics_coll = chroma_client.get_or_create_collection("office_analytics")
+
+    # Populate from PDF (if empty)
+    if locations_coll.count() == 0:
+        pdf_lines = extract_lines_from_pdf("data/offices.pdf")
+        for idx, line in enumerate(pdf_lines):
+            embedding = embed_model.encode(line).tolist()
+            locations_coll.add(
+                ids=[f"pdf-{idx}"],
+                embeddings=[embedding],
+                documents=[line]
+            )
+
+    # Populate from CSV (if empty)
+    if analytics_coll.count() == 0:
+        df = pd.read_csv("data/offices.csv")
+        for idx, row in df.iterrows():
+            text = f"{row['city']} office with {row['employees']} employees..."
+            embedding = embed_model.encode(text).tolist()
+            analytics_coll.add(
+                ids=[f"csv-{idx}"],
+                embeddings=[embedding],
+                documents=[text],
+                metadatas={"city": row['city'], "employees": int(row['employees']), ...}
+            )
+```
+
+**Vector Search Tools:**
+```python
+@mcp.tool
+def vector_search_locations(query: str, top_k: int = 5) -> dict:
+    """
+    Semantic vector search for office locations using ChromaDB.
+    Better than keyword matching for fuzzy queries like "HQ" or "headquarters".
+
+    Returns: {"matches": list of dicts with document and metadata, "count": int}
+    """
+    embed_model = get_embed_model()
+    locations_coll = get_chroma_collections()[0]
+
+    query_embedding = embed_model.encode(query).tolist()
+    results = locations_coll.query(
+        query_embeddings=[query_embedding],
+        n_results=top_k
+    )
+    return {"matches": results["documents"][0], "count": len(results["documents"][0])}
+
+@mcp.tool
+def vector_search_analytics(query: str, top_k: int = 5) -> dict:
+    """
+    Semantic vector search for office analytics.
+    Enables semantic queries like "high revenue offices" or "large teams".
+
+    Returns: {"matches": list of dicts with document and metadata, "count": int}
+    """
+    # Similar implementation for analytics collection
+    ...
+```
+
+**Key Points:**
+- **Initialization**: Vector DB populated on server startup (not on every query)
+- **Two Collections**: Separate embeddings for PDF (locations) and CSV (analytics)
+- **Semantic Search**: Uses cosine similarity for finding relevant documents
+- **Metadata Storage**: CSV data includes structured metadata (city, employees, revenue)
+- **Persistent Storage**: ChromaDB data persists at `./mcp_chroma_db`
+
+### 3. Keyword-Based Classifier
 
 ```python
 @mcp.tool()
@@ -177,7 +283,7 @@ def classify_canonical_query(user_query: str) -> dict:
     }
 ```
 
-### 3. Template and Data Tools
+### 4. Template and Data Tools
 
 The server provides prompt templates and data rather than executing queries:
 
@@ -222,7 +328,7 @@ def get_filtered_office_data(columns: list = None,
     }
 ```
 
-### 4. Canonical Query Structure
+### 5. Canonical Query Structure
 
 ```python
 CANONICAL_QUERIES = {
@@ -390,16 +496,18 @@ Template structure:
 
 ## Key Differences from Lab 3
 
-| Aspect | Lab 3 (Tools) | Lab 6 (Classification) |
+| Aspect | Lab 3 (Tools) | Lab 6 (Classification + Vector DB) |
 |--------|---------------|----------------------|
 | Query Type | Tool names | Natural language |
 | Processing | Direct execution | Classify → Template → Data → Execute |
-| Data Source | External APIs | Local CSV |
-| Flexibility | Fixed tools | Extensible queries |
-| Complexity | Low | Medium-High |
+| Data Source | External APIs | Local CSV + PDF (embedded) |
+| Vector Database | None | ChromaDB with 2 collections |
+| Semantic Search | None | Vector search for locations & analytics |
+| Flexibility | Fixed tools | Extensible queries + semantic search |
+| Complexity | Low | High |
 | LLM Usage | None (in server) | Client-side (for analysis) |
 | Classification | None | Keyword-based |
-| Server Role | Execute tools | Classify + Provide templates/data |
+| Server Role | Execute tools | Classify + Provide templates/data + Vector search |
 | Client Role | Call tools | Execute LLM with templates |
 
 ## Canonical Query Benefits
@@ -453,19 +561,26 @@ formatted = template.format(year_threshold=2014)
 - **Query Classification**: Natural language → Canonical form via keyword matching
 - **Canonical Queries**: Predefined query definitions with templates
 - **Template System**: Structured prompts for consistent LLM responses
+- **Vector Database**: MCP server owns and manages ChromaDB for semantic search
+- **Dual Data Sources**: Both PDF (locations) and CSV (analytics) embedded
+- **Semantic Search**: Vector embeddings enable fuzzy matching beyond keywords
 - **Separation of Concerns**: Server classifies & provides templates, client executes LLM
 - **Data Requirements**: Templates specify what data columns are needed
 - **Client-Side LLM**: LLM execution happens on client with server-provided templates
 - **Extensibility**: Add new canonical queries by updating server config only
+- **Startup Initialization**: Vector DB populated once on startup for performance
 
 ## Architecture Characteristics
-- **Type**: Classification-based query system
-- **Complexity**: Medium-High
-- **Dependencies**: FastMCP, Pandas, Ollama
-- **Data Source**: CSV files (local)
-- **Latency**: ~1-2 seconds (keyword classification + template/data retrieval)
+- **Type**: Classification-based query system with vector database
+- **Complexity**: High
+- **Dependencies**: FastMCP, Pandas, ChromaDB, SentenceTransformers, pdfplumber, Ollama
+- **Data Sources**: CSV files (structured) + PDF files (embedded)
+- **Vector Database**: ChromaDB with persistent storage (`./mcp_chroma_db`)
+- **Embedding Model**: SentenceTransformer (all-MiniLM-L6-v2)
+- **Collections**: 2 (office_locations from PDF, office_analytics from CSV)
+- **Latency**: ~1-2 seconds (keyword classification + template/data/vector retrieval)
 - **Scalability**: Add queries without client changes
-- **Flexibility**: Handles natural language variations
+- **Flexibility**: Handles natural language variations + semantic search
 
 ## Use Cases
 1. **Business Analytics**: Query structured business data
