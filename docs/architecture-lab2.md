@@ -8,7 +8,7 @@ Lab 2 introduces the TAO (Thought-Action-Observation) agent pattern with tool ca
 ```mermaid
 graph TB
     subgraph "Agent Workflow (TAO Loop)"
-        User[User Query: "Weather in Paris?"]
+        User[User Query: Weather in Paris?]
 
         subgraph "Thought Phase"
             LLM1[LLM llama3.2]
