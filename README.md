@@ -46,4 +46,6 @@ To do this, when logged in to GitHub, go to https://github.com/settings/codespac
 
 ---
 
-For educational use only by the attendees of our workshops.
+<p align="center">
+**For educational use only by the attendees of our workshops.**
+</p>

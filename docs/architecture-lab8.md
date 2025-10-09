@@ -448,6 +448,8 @@ with col3:
 
 ---
 
-For educational use only by the attendees of our workshops.
+<p align="center">
+**For educational use only by the attendees of our workshops.**
+</p>
 
-**For training purposes only. (C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**
+**(C) 2025 Tech Skills Transformations and Brent C. Laster - all rights reserved.**

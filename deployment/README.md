@@ -28,4 +28,6 @@ license: mit
    - "What's the average revenue across all offices?"
 ---
 
-For educational use only by the attendees of our workshops.
+<p align="center">
+**For educational use only by the attendees of our workshops.**
+</p>
