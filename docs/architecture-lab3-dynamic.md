@@ -191,8 +191,29 @@ Args: <valid JSON>
 - Precise formatting requirements
 - No ambiguity about response format
 
-### 3. Context Tracking
+### 3. Dual Memory System
 
+The agent uses **two complementary memory systems**:
+
+#### A. Conversation Memory (Message History)
+```python
+messages = [
+    {"role": "system", "content": SYSTEM},
+    {"role": "user", "content": f"What is the weather in {city}?"},
+]
+
+# After each step, append to history
+messages.append({"role": "assistant", "content": response})  # LLM's plan
+messages.append({"role": "user", "content": observation})    # Tool result
+```
+
+**Purpose:**
+- LLM sees full conversation history
+- Enables reasoning about previous steps
+- TAO trace visible to LLM
+- Grows with each tool call
+
+#### B. Context Memory (State Dictionary)
 ```python
 context = {
     "city": city,
@@ -215,9 +236,44 @@ elif action == "convert_c_to_f":
 ```
 
 **Purpose:**
-- Stores all gathered information
+- Stores extracted structured data
 - Tool-agnostic (works with any call order)
 - Used to generate final answer
+- Fixed size (doesn't grow)
+
+#### Memory Architecture
+
+```mermaid
+graph LR
+    subgraph "Step N"
+        LLM[LLM Decision]
+        Tool[Call Tool]
+        Update[Update Memories]
+    end
+
+    subgraph "Conversation Memory"
+        Msgs["messages[]<br/>(for LLM reasoning)"]
+    end
+
+    subgraph "Context Memory"
+        Ctx["context{}<br/>(for final answer)"]
+    end
+
+    Msgs -->|Read| LLM
+    LLM --> Tool
+    Tool --> Update
+    Update -->|Append| Msgs
+    Update -->|Store| Ctx
+
+    style Msgs fill:#E3F2FD
+    style Ctx fill:#FFF9C4
+```
+
+**Why Two Systems?**
+- **Conversation Memory**: LLM needs full conversation context for reasoning
+- **Context Memory**: Application needs structured data for final output
+- They serve different consumers (LLM vs application code)
+- Both updated after each tool call
 
 ### 4. Error Recovery
 
