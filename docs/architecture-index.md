@@ -1,7 +1,7 @@
 # Architecture Documentation Index
 
 ## Overview
-This directory contains detailed architecture diagrams for each lab in the AI 3-in-1 course. Each document includes:
+This directory contains detailed architecture diagrams for each lab in the Building AI Apps course. Each document includes:
 - **Detailed Architecture Diagram**: Complete system view with all components
 - **Presentation Slide Diagram**: Simplified diagram for teaching/slides
 - **Component Details**: Technical specifications
