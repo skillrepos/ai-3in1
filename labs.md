@@ -671,11 +671,17 @@ What offices opened after 2014?
 code streamlit_app.py
 ```
 
+![app code](./images/aiapps27.png?raw=true "app code") 
+
+<br><br>
+
 3. Before we use the Streamlit app, make sure your MCP classification server from Lab 6 is running:
 
 ```
 python mcp_server_classification.py
 ```
+
+![server running](./images/aiapps28.png?raw=true "server running") 
 
 <br><br>
 
@@ -685,12 +691,15 @@ python mcp_server_classification.py
 streamlit run streamlit_app.py
 ```
 
+![app running](./images/aiapps29.png?raw=true "app running") 
+
 <br><br>
 
-5. Your codespace will start the Streamlit app running at http://localhost:8501. You will probably see a dialog pop up to open Open a browser tab to that location. If it tries to take you to another codespace, just close that new codespace tab and try again.
-
+5. Your codespace will start the Streamlit app running at http://localhost:8501. You will probably see a dialog pop up to open Open a browser tab to that location. If you can't open it via the dialog, then go to the *PORTS* tab (next to *TERMINAL*), find the row for *8501* and then hover over the *Forwarded Address* column and click on the "globe icon".  See second screenshot below.
 
 ![Running the Streamlit app](./images/aiapps23.png?raw=true "Running the Streamlit app") 
+
+![Running the Streamlit app](./images/aiapps30.png?raw=true "Running the Streamlit app") 
 
 <br><br>
 
@@ -699,11 +708,14 @@ streamlit run streamlit_app.py
    - **Main area**: Enter queries and see real-time processing steps
    - **Processing indicators**: Watch as the system analyzes your query intent and routes it appropriately
 
+![Exploring the Streamlit app](./images/aiapps24.png?raw=true "Exploring the Streamlit app") 
+
 <br><br>
 
-7. Try these example queries in the web interface:
-   - "Which office has the highest revenue?"
+7. Here are some example queries you can try in the web interface: (the ones that go through the canonical flow may take a while initially)
    - "Tell me about the Chicago office"
+   - "How are employees distributed?"
+   - "Which office has the highest revenue?"
    - "What's the weather at our New York office?"
    - "Which office has the most employees?"
 
@@ -726,7 +738,6 @@ streamlit run streamlit_app.py
 <br><br>
 
 
-
 10. The Streamlit app includes a conversation memory dashboard in the sidebar (a feature of Streamlit). Look for:
     - **Total Exchanges**: Counter showing how many conversations have been stored
     - **Estimated Tokens**: Approximate token usage with progress bar
@@ -742,7 +753,9 @@ streamlit run streamlit_app.py
     - Click "View History" to see recent exchanges
     - Click "Clear Memory" to reset and start fresh
 
+![App memory features](./images/aiapps31.png?raw=true "App memory features")     
 
+<br><br>
 
 12. When finished, stop the Streamlit apps with Ctrl-C in their respective terminals.
 
