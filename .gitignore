@@ -7,6 +7,11 @@ py_env/
 # C extensions
 *.so
 
+
+# chromadb
+chroma_db/
+mcp_chroma_db/
+
 # Distribution / packaging
 .Python
 build/
