@@ -8,7 +8,7 @@ Lab 5 combines RAG (Retrieval-Augmented Generation) with the MCP agent from Lab 
 ```mermaid
 graph TB
     subgraph "RAG + Agent Architecture"
-        User[User Query: "Tell me about HQ"]
+        User["User Query - Tell me about HQ"]
 
         subgraph "RAG Pipeline"
             Embed1[Embed Query all-MiniLM-L6-v2]
@@ -229,7 +229,7 @@ graph TB
 
 ```mermaid
 flowchart TD
-    RAG[RAG Top Hit: "New York Office, 40.7128, -74.0060"]
+    RAG["RAG Top Hit - New York Office, 40.7128, -74.0060"]
 
     Try1{Coordinates in text?}
     Try2{City, State pattern?}
@@ -237,9 +237,9 @@ flowchart TD
     Try4{Capitalized word?}
 
     Coords[Extract Coords 40.7, -74.0]
-    CityState[Extract: "New York, NY"]
-    CityCountry[Extract: "Paris, France"]
-    City[Extract: "London"]
+    CityState["Extract - New York, NY"]
+    CityCountry["Extract - Paris, France"]
+    City["Extract - London"]
 
     Geocode[MCP geocode_location tool Get Coordinates with Retry]
 
@@ -288,3 +288,4 @@ flowchart TD
 4. **Domain-Specific**: Specialized knowledge (office data)
 5. **Scalable**: Add more documents without model changes
 6. **Contextual**: Combines retrieval with reasoning
+
