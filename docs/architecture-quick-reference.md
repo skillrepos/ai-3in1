@@ -18,14 +18,6 @@ Query → LLM (Thought) → Tool (Action) → Data (Observation) → Response
 
 ---
 
-### Lab 2.5: Agent + Memory (Optional)
-```
-Query → [Memory Buffer] → LLM + Context → Tools → Response → [Store]
-```
-**Use for slides:** Stateful vs stateless agents
-
----
-
 ### Lab 3: MCP Protocol
 ```
 Agent → MCP Client → HTTP → MCP Server (:8000) → Tools → API
