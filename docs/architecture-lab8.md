@@ -27,7 +27,7 @@ graph TB
             Router[Query Router detect_query_type]
 
             subgraph "Processing"
-                Progress[Progress Indicators [1/4] [2/4] [3/4] [4/4]]
+                Progress["Progress Indicators (1/4) (2/4) (3/4) (4/4)"]
                 Processor[process_query_with_progress]
             end
         end
@@ -60,9 +60,9 @@ graph TB
 
 ```mermaid
 flowchart LR
-    Browser([Web Browser]) <-->|HTTP| Streamlit[Streamlit App :8501]
+    Browser([Web Browser]) <-->|HTTP| Streamlit["Streamlit App  -8501"]
     Streamlit <-->|Session State| Memory[(Memory Dashboard)]
-    Streamlit <-->|MCP| Server[MCP Server :8000]
+    Streamlit <-->|MCP| Server["MCP Server  -8000"]
     Streamlit -->|Display| Results([Visual Results])
 
     style Streamlit fill:#4CAF50,color:#fff
@@ -78,12 +78,12 @@ graph TB
         State[st.session_state]
 
         subgraph "Conversation Data"
-            History[conversation_history: List of exchanges]
-            Entities[mentioned_entities: {'offices': set, 'queries': list}]
+            History["conversation_history - List of exchanges"]
+            Entities["mentioned_entities - {'offices' - set, 'queries' - list}"]
         end
 
         subgraph "UI State"
-            ShowHistory[show_history: bool]
+            ShowHistory["show_history - bool"]
         end
 
         State --> History
@@ -285,13 +285,13 @@ st.session_state.conversation_history.append(exchange)
 ```mermaid
 graph LR
     subgraph "Session State Memory"
-        E1[Exchange 1 Q: Revenue? A: NY $85M T: 10:30:15]
-        E2[Exchange 2 Q: Weather Paris? A: 72°F Clear T: 10:31:42]
-        E3[Exchange 3 Q: Most employees? A: NY 120 T: 10:32:18]
+        E1["Exchange 1 Q - Revenue? A - NY $85M T - 10 -30 -15"]
+        E2["Exchange 2 Q - Weather Paris? A - 72°F Clear T - 10 -31 -42"]
+        E3["Exchange 3 Q - Most employees? A - NY 120 T - 10 -32 -18"]
 
-        Entities[Entities Tracked: • New York • Paris]
+        Entities["Entities Tracked - • New York • Paris"]
 
-        Stats[Metrics: Exchanges: 3 Tokens: ~450 Progress: 11%]
+        Stats["Metrics - Exchanges - 3 Tokens - ~450 Progress - 11%"]
     end
 
     E1 --> Stats
@@ -312,7 +312,7 @@ graph LR
 ```mermaid
 graph TB
     subgraph "Streamlit Page"
-        Header[Header: AI Office Assistant]
+        Header["Header - AI Office Assistant"]
 
         subgraph "Main Column"
             Input[Query Input Box]
