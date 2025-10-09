@@ -77,7 +77,7 @@ curl http://localhost:11434/api/generate -d '{
 
 8. This will take a minute or so to run. You should see a long text response . You can try out some other prompts/queries if you want.
 
-![query response](./images/aiapps36.png?raw=true "Query response")
+![query response](./images/aiapps37.png?raw=true "Query response")
 
 <br><br>
 
