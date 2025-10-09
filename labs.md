@@ -1,7 +1,7 @@
 # AI for App Development
 ## Building AI Apps that leverage agents, MCP, and RAG
 ## Session labs 
-## Revision 2.1 - 11/08/25
+## Revision 2.2 - 10/09/25
 ## (c) 2025 Tech Skills Transformations
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
@@ -33,7 +33,7 @@ ollama
 
 <br><br>
 
-4. Switch back to a terminal in your codespace. Run the first command to see what models are loaded. Then pull the model down with the second command. (This will take a few minutes.)
+4. Switch back to a terminal in your codespace. Run the first command to see what models are loaded (none currently). Then pull the model down with the second command. (This will take a few minutes.) 
 
 ```
 ollama list
@@ -70,14 +70,14 @@ curl http://localhost:11434/api/generate -d '{
   "model": "llama3.2",
   "prompt": "What causes weather changes?",
   "stream": false
-}'
+}' | jq -r '.response'
 ```
 
 <br><br>
 
-8. This will take a minute or so to run. You should see a single response object returned with lots of data. But you can make out the text answer if you look for it. You can try out some other prompts/queries if you want.
+8. This will take a minute or so to run. You should see a long text response . You can try out some other prompts/queries if you want.
 
-![query response](./images/31ai11.png?raw=true "Query response")
+![query response](./images/aiapps36.png?raw=true "Query response")
 
 <br><br>
 
