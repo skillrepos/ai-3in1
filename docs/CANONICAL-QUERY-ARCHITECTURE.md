@@ -120,33 +120,57 @@ graph TB
     Catalog --> Rev[revenue_stats]
     Catalog --> Emp[employee_analysis]
     Catalog --> Eff[efficiency_analysis]
+    Catalog --> Growth[growth_analysis]
     Catalog --> Prof[office_profile]
 
     Rev --> RevDesc[Calculate revenue statistics]
     Emp --> EmpDesc[Analyze employee distribution]
     Eff --> EffDesc[Revenue per employee metrics]
+    Growth --> GrowthDesc[Office growth patterns by year]
     Prof --> ProfDesc[Detailed office information]
 
     style Catalog fill:#4CAF50,color:#fff
     style Rev fill:#2196F3,color:#fff
     style Emp fill:#2196F3,color:#fff
     style Eff fill:#2196F3,color:#fff
+    style Growth fill:#2196F3,color:#fff
     style Prof fill:#2196F3,color:#fff
 ```
 
 #### 3. Vector Database Layer
-- **Two collections**: Locations (PDF) and Analytics (CSV)
+- **ChromaDB**: Persistent vector database at `./mcp_chroma_db`
+- **Embedding Model**: `all-MiniLM-L6-v2` (SentenceTransformer)
+- **Two collections**:
+  - `office_locations` - PDF embeddings (one per line from offices.pdf)
+  - `office_analytics` - CSV embeddings (descriptive text for each office)
 - **Semantic search**: Finds relevant data beyond keywords
 - **Fuzzy matching**: Handles variations like "HQ" vs "headquarters"
+- **Auto-population**: Server populates collections on startup if empty
 
 #### 4. MCP Tools Provided
-1. `classify_canonical_query()` - Classify user intent
-2. `get_query_template()` - Get prompt template
-3. `get_filtered_office_data()` - Get structured CSV data
-4. `vector_search_locations()` - Search PDF embeddings
-5. `vector_search_analytics()` - Search CSV embeddings
-6. `get_weather()` - Weather API
-7. `geocode_location()` - Location to coordinates
+
+**Classification & Templates:**
+1. `list_canonical_queries()` - List all available queries
+2. `classify_canonical_query()` - Classify user intent
+3. `get_query_template()` - Get prompt template
+4. `validate_query_parameters()` - Validate query parameters
+
+**Structured Data Access:**
+5. `get_office_dataset()` - Get complete office dataset
+6. `get_filtered_office_data()` - Get filtered CSV data with column selection
+
+**Vector Search (Semantic):**
+7. `vector_search_locations()` - Semantic search for PDF location data
+8. `vector_search_analytics()` - Semantic search for CSV analytics data
+
+**Legacy Location Tools:**
+9. `search_office_locations()` - Keyword search in PDF (legacy)
+10. `get_all_office_locations()` - Get all location data from PDF
+
+**Weather & Geocoding:**
+11. `get_weather()` - Weather API via Open-Meteo
+12. `geocode_location()` - Location to coordinates
+13. `convert_c_to_f()` - Temperature conversion
 
 ---
 
@@ -183,14 +207,18 @@ sequenceDiagram
     participant LLM
 
     User->>Agent: "Which office has highest revenue?"
+    Agent->>Agent: Extract parameters (if needed)
     Agent->>MCP: classify_canonical_query()
-    MCP->>Agent: "revenue_stats"
+    MCP->>Agent: "revenue_stats" + confidence
+    Agent->>MCP: validate_query_parameters() (if params)
+    MCP->>Agent: Validation result
     Agent->>MCP: get_query_template()
-    MCP->>Agent: Template + requirements
-    Agent->>MCP: get_filtered_office_data()
-    MCP->>Agent: Structured data
-    Agent->>LLM: Execute template + data
-    LLM->>User: "New York: $85.5M"
+    MCP->>Agent: Template + data_requirements
+    Agent->>MCP: get_filtered_office_data(columns)
+    MCP->>Agent: Structured CSV data
+    Agent->>LLM: Execute template.format(data)
+    LLM->>Agent: Generated analysis
+    Agent->>User: "New York: $85.5M"
 ```
 
 **Best for:**
@@ -230,6 +258,8 @@ sequenceDiagram
 
 ## Classification Workflow (Step-by-Step)
 
+This is the complete 6-step workflow implemented in Lab 7:
+
 ### Step 1: Natural Language Input
 
 ```
@@ -257,12 +287,28 @@ flowchart LR
 }
 ```
 
-### Step 3: Get Template
+### Step 3: Extract & Validate Parameters
+
+For parameterized queries (like `growth_analysis` or `office_profile`), the agent must:
+- Extract parameters from user query (e.g., year, city name)
+- Validate using `validate_query_parameters()`
+
+```python
+# Example: growth_analysis
+parameters = {"year_threshold": 2014}
+
+# Validate before proceeding
+validation = validate_query_parameters("growth_analysis", parameters)
+if not validation["valid"]:
+    return f"Missing: {validation['missing']}"
+```
+
+### Step 4: Get Template
 
 ```mermaid
 flowchart LR
-    Request[get_query_template] --> Fetch[Fetch from Catalog]
-    Fetch --> Template[Return Template]
+    Request[get_query_template] --> Params[Substitute Parameters]
+    Params --> Template[Return Template]
     Template --> Requirements[Data Requirements]
 
     style Template fill:#FF9800,color:#fff
@@ -272,11 +318,12 @@ flowchart LR
 ```json
 {
   "template": "Analyze revenue data: {data}\n\nCalculate:\n1. Average\n2. Highest\n3. Total",
-  "data_requirements": ["revenue_million", "city"]
+  "data_requirements": ["revenue_million", "city"],
+  "parameters_used": {}
 }
 ```
 
-### Step 4: Get Data
+### Step 5: Get Data
 
 ```mermaid
 flowchart LR
@@ -298,7 +345,7 @@ flowchart LR
 }
 ```
 
-### Step 5: Execute LLM (Client-Side)
+### Step 6: Execute LLM (Client-Side)
 
 ```mermaid
 flowchart LR
@@ -375,12 +422,22 @@ Based on our office data:
 
 ### Server-Side Only (No Agent Changes!)
 
+The actual implementation includes 5 canonical queries:
+
+**1. revenue_stats** - Revenue statistics (no parameters)
+**2. employee_analysis** - Employee distribution (no parameters)
+**3. efficiency_analysis** - Revenue per employee (no parameters)
+**4. growth_analysis** - Office growth by year (parameter: year_threshold)
+**5. office_profile** - Detailed office info (parameter: city)
+
+### Adding a New Query
+
 ```python
-# In MCP server configuration
+# In MCP server configuration (mcp_server_classification.py)
 CANONICAL_QUERIES["market_analysis"] = {
     "description": "Analyze market performance by region",
     "parameters": [
-        {"name": "region", "type": "str", "required": True}
+        {"name": "region", "type": "str", "description": "Region name", "required": True}
     ],
     "data_requirements": ["city", "state", "revenue_million", "employees"],
     "prompt_template": """
