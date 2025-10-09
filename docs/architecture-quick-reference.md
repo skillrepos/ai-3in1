@@ -207,11 +207,6 @@ Complexity ↑
 3. Architecture: TAO loop diagram
 4. Demo: Weather agent in action
 
-### Lab 2.5 (3 slides)
-1. Title: "Adding Conversation Memory (Optional)"
-2. Architecture: Memory buffer diagram
-3. Comparison: With vs without memory
-
 ### Lab 3 (4 slides)
 1. Title: "Model Context Protocol (MCP)"
 2. Problem: Why protocols matter
