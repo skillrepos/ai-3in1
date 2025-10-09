@@ -46,24 +46,6 @@ Introduction to agentic behavior with tool calling using the TAO (Thought-Action
 
 ---
 
-### [Lab 2.5 (Optional): Adding Conversation Memory](./architecture-lab2.5.md)
-**Complexity:** Medium | **Type:** Stateful Agent with Buffer Memory
-
-Extends Lab 2 with conversation memory using a sliding window buffer for context-aware interactions.
-
-**Key Components:**
-- ConversationMemory class (deque-based)
-- Context injection system
-- Memory management (add/retrieve/clear)
-
-**Learning Focus:**
-- Buffer memory pattern
-- Context injection
-- Deque data structure
-- Stateful agents
-
----
-
 ### [Lab 3: Exploring MCP (Model Context Protocol)](./architecture-lab3.md)
 **Complexity:** Medium-High | **Type:** Client-Server with Standardized Protocol
 
@@ -220,21 +202,6 @@ graph LR
     style L9 fill:#c8e6c9
 ```
 
-## Complexity Progression
-
-| Lab | Complexity | Components | LLM Calls | Latency | Memory |
-|-----|-----------|------------|-----------|---------|---------|
-| 1 | Low | 1 | 1 | 2-5s | None |
-| 2 | Medium | 3 | 2 | 3-6s | None |
-| 2.5 | Medium | 4 | 2 | 3-6s | Buffer |
-| 3 | Medium-High | 4 | 2 | 3-7s | None |
-| 4 | Medium | 3 | 0 | 0.1s | None |
-| 5 | High | 6 | 2-3 | 5-10s | Vector |
-| 6 | Medium-High | 5 | 1-2 | 2-5s | None |
-| 7 | High | 8 | 1-3 | 2-10s | None |
-| 8 | High | 10 | 1-3 | 2-10s | Session |
-| 9 | High | 8 | 1-3 | 2-15s | Session |
-
 ## Key Architectural Patterns
 
 ### 1. TAO Pattern (Lab 2)
@@ -251,63 +218,6 @@ Natural Language → Canonical Query → Structured Execution
 
 ### 5. Multi-Workflow Routing (Lab 7)
 Intelligent intent detection → Appropriate workflow selection
-
-### 6. Memory Patterns
-- **Buffer Memory** (Lab 2.5): Fixed-size sliding window
-- **Vector Memory** (Lab 5): Semantic similarity search
-- **Session Memory** (Lab 8): Web UI state management
-
-## Using These Diagrams
-
-### For Teaching
-Each presentation diagram is optimized for slides:
-- Simple, clear components
-- Minimal text
-- Color-coded for visual clarity
-- Numbered steps for flow
-
-### For Development
-Detailed diagrams show:
-- All components and their connections
-- Data flows and sequences
-- Implementation details
-- Dependencies
-
-### For Documentation
-Component details include:
-- Code snippets
-- Configuration examples
-- Performance metrics
-- Resource requirements
-
-## Diagram Types Used
-
-1. **Component Diagrams** - Show system structure
-2. **Sequence Diagrams** - Show interaction over time
-3. **Flowcharts** - Show decision logic and processes
-4. **Class Diagrams** - Show object structures
-5. **Graph Diagrams** - Show relationships and flows
-
-## Viewing the Diagrams
-
-These Mermaid diagrams render in:
-- GitHub (automatically)
-- VS Code (with Mermaid extension)
-- Markdown viewers (most support Mermaid)
-- Export to PNG/SVG for presentations
-
-## Additional Resources
-
-- **labs.md**: Step-by-step lab instructions
-- **README.md**: Project setup and overview
-- **Source Code**: `/agents`, `/mcp_servers`, `/apps` directories
-- **Lab Solutions**: `/labs/common` directory
-
----
-
-**Created:** 2025-10-06
-**Course:** AI 3-in-1: Agents, RAG and Local Models
-**Version:** 2.6
 
 ---
 
