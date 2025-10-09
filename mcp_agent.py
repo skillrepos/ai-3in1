@@ -1,32 +1,40 @@
 #!/usr/bin/env python3
+"""
+Lab 3: TAO Agent with FastMCP Weather Server
+────────────────────────────────────────────────────────────────────
+A TRUE agentic implementation where the LLM dynamically selects which
+tools to call and when to stop. This demonstrates:
+
+
+Prerequisites: FastMCP weather server must be running on localhost:8000
+"""
 
 import asyncio
 import json
 import re
 import textwrap
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
-from langchain_ollama import ChatOllama   # local Llama-3.2 wrapper
+from langchain_ollama import ChatOllama
 
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║ 1.  System prompt that defines the TAO protocol                  ║
-# ╚══════════════════════════════════════════════════════════════════╝
-# This prompt teaches the LLM how to format its tool-calling responses.
-# The agent expects exactly 3 lines: Thought, Action, and Args.
 SYSTEM = textwrap.dedent("""
+You are a weather information agent with access to these tools:
+
 """).strip()
 
-ARGS_RE = re.compile(r"Args:\s*(\{.*?\})(?:\s|$)", re.S)
+# Regex patterns for parsing LLM responses
+ACTION_RE = re.compile(r"Action:\s*(\w+)", re.IGNORECASE)
+ARGS_RE = re.compile(r"Args:\s*(\{.*?\})(?:\s|$)", re.S | re.IGNORECASE)
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# ║ 2.  Robust unwrap helper (works with all FastMCP versions)       ║
+# ║ 2.  Robust unwrap helper                                         ║
 # ╚══════════════════════════════════════════════════════════════════╝
 # FastMCP wraps tool results in various formats depending on version.
 # This helper extracts the actual Python value from any wrapper format.
 def unwrap(obj):
-    """Return plain Python value from any CallToolResult variant."""
+    """Extract plain Python value from FastMCP wrapper objects."""
     if hasattr(obj, "structured_content") and obj.structured_content:
         return unwrap(obj.structured_content)
     if hasattr(obj, "data") and obj.data:
@@ -47,19 +55,14 @@ def unwrap(obj):
     return obj
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# ║ 3.  LLM-based city extractor                                     ║
+# ║ 3.  LLM-based city extractor (unchanged)                         ║
 # ╚══════════════════════════════════════════════════════════════════╝
 # Uses a separate LLM call to extract city names from natural language.
 # This handles inputs like "What's the weather in Paris?" → "Paris"
 extract_llm = ChatOllama(model="llama3.2", temperature=0.0)
 
 def extract_city(prompt: str) -> Optional[str]:
-    """
-    Ask the LLM to extract a city name from natural language input.
-
-    Returns:
-        City name string, or None if no city is mentioned
-    """
+    """Extract city name from natural language using LLM."""
     ask = (
         "Return ONLY the city name mentioned here (no country or state). "
         "If none, reply exactly 'NONE'.\n\n"
@@ -69,81 +72,101 @@ def extract_city(prompt: str) -> Optional[str]:
     return None if reply.upper() == "NONE" else reply
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# ║ 4.  TAO episode execution (async for MCP client)                 ║
+# ║ 4.  Dynamic TAO loop with LLM-controlled tool selection          ║
 # ╚══════════════════════════════════════════════════════════════════╝
-
-async def run(city: str) -> None:
     llm = ChatOllama(model="llama3.2", temperature=0.0)
 
-
-        print("\n--- Thought → Action → Observation → Final ---\n")
-
-        # ── Step 1: LLM plans geocoding to get coordinates ──────────────
-        plan1 = llm.invoke(messages).content.strip()
-        print(plan1 + "\n")
-        args1 = json.loads(ARGS_RE.search(plan1).group(1))
-
-        # Call MCP server's geocode_location tool
-        try:
-
-        except ToolError as e:
-            print(f"Error: geocode_location failed ({e})\n")
-            return
-
-        # Handle geocoding errors
-        if isinstance(geo_result, dict) and "error" in geo_result:
-            print(f"Error: {geo_result['error']}\n")
-            return
-
-        lat = geo_result.get("latitude")
-        lon = geo_result.get("longitude")
-        location_name = geo_result.get("name", city)
-        print(f"Observation: {{'latitude': {lat}, 'longitude': {lon}, 'name': '{location_name}'}}\n")
-
-        # ── Step 2: LLM plans weather lookup with coordinates ───────────
-        
-        print(plan2 + "\n")
-        args2 = json.loads(ARGS_RE.search(plan2).group(1))
-
-        # Call MCP server's get_weather tool
-        try:
-     
-            print(f"Error: get_weather failed ({e})\n")
-            return
-
-        # Handle weather errors
-        if isinstance(weather_result, dict) and "error" in weather_result:
-            print(f"Error: {weather_result['error']}\n")
-            return
-
-        temp_c = weather_result.get("temperature")
-        cond   = weather_result.get("conditions", "Unknown")
-        print(f"Observation: {{'temperature': {temp_c}, 'conditions': '{cond}'}}\n")
-
-        # ── Step 3: LLM plans temperature unit conversion ───────────────
-        messages += [
-            {"role": "assistant", "content": plan2},
-            {"role": "user",      "content": f"Observation: {{'temperature': {temp_c}, 'conditions': '{cond}'}}"},
+    async with Client("http://127.0.0.1:8000/mcp/") as mcp:
+        messages = [
+            {"role": "system", "content": SYSTEM},
+            {"role": "user", "content": f"What is the current weather in {city}?"},
         ]
-        plan3 = llm.invoke(messages).content.strip()
-        print(plan3 + "\n")
 
-        # Call MCP server's convert_c_to_f tool
-        try:
 
-            temp_f = float(unwrap(raw))
-        except (ToolError, ValueError) as e:
-            print(f"Error: convert_c_to_f failed ({e})\n")
-            return
+        for step in range(1, max_steps + 1):
+            print(f"[Step {step}]")
+            
 
-        print(f"Observation: {{'temperature_f': {temp_f}}}\n")
-        print(f"Final: {location_name} - {cond} ({temp_f:.1f} °F)\n")
+            action = action_match.group(1).lower()
+
+            # Check if LLM says we're done
+            if action == "done":
+                print("\n" + "="*60)
+                print("Agent has gathered sufficient information!")
+                print("="*60)
+
+                # Generate final summary
+                if context["temperature_f"] is not None:
+                    temp_display = f"{context['temperature_f']:.1f}°F"
+                elif context["temperature_c"] is not None:
+                    temp_display = f"{context['temperature_c']:.1f}°C"
+                else:
+                    temp_display = "Unknown"
+
+                print(f"\nFinal Answer:")
+                print(f"  Location: {context.get('location_name', city)}")
+                print(f"  Conditions: {context['conditions'] or 'Unknown'}")
+                print(f"  Temperature: {temp_display}")
+                return
+
+            # Parse arguments
+            args_match = ARGS_RE.search(response)
+            if not args_match:
+                print(f"\n❌ Error: Could not parse Args from LLM response")
+                return
+
+            try:
+                args = json.loads(args_match.group(1))
+            except json.JSONDecodeError as e:
+                print(f"\n❌ Error: Invalid JSON in Args: {e}")
+                return
+
+
+            except ToolError as e:
+                print(f"❌ MCP Error: {e}\n")
+                # Add error to conversation and let LLM try to recover
+                messages.append({"role": "assistant", "content": response})
+                messages.append({"role": "user", "content": f"Observation: Error calling {action} - {e}"})
+                continue
+            except Exception as e:
+                print(f"❌ Unexpected Error: {type(e).__name__}: {e}\n")
+                return
+
+            # Handle tool-specific errors (e.g., geocoding failures)
+            if isinstance(result, dict) and "error" in result:
+                print(f"⚠️  Tool returned error: {result['error']}\n")
+                messages.append({"role": "assistant", "content": response})
+                messages.append({"role": "user", "content": f"Observation: {result}"})
+                continue
+
+            # Store relevant data in context
+            if action == "geocode_location" and isinstance(result, dict):
+                context["latitude"] = result.get("latitude")
+                context["longitude"] = result.get("longitude")
+                context["location_name"] = result.get("name", city)
+            elif action == "get_weather" and isinstance(result, dict):
+                context["temperature_c"] = result.get("temperature")
+                context["conditions"] = result.get("conditions")
+            elif action == "convert_c_to_f":
+                context["temperature_f"] = float(result)           
+        # Max steps reached
+        print(f"\n⚠️  Reached maximum steps ({max_steps}) without completion")
+        print("Partial information gathered:")
+        for key, value in context.items():
+            if value is not None:
+                print(f"  {key}: {value}")
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# ║ 5.  Interactive REPL for user queries                            ║
+# ║ 5.  Interactive REPL                                             ║
 # ╚══════════════════════════════════════════════════════════════════╝
 if __name__ == "__main__":
-    print("Weather TAO agent with geocoding (LLM extraction, 'exit' to quit)\n")
+    print("="*60)
+    print("Dynamic Weather TAO Agent")
+    print("="*60)
+    print("\nThis agent uses LLM-controlled tool selection.")
+    print("The LLM decides which tools to call and when to stop.\n")
+    print("Type 'exit' to quit\n")
+
     while True:
         raw_prompt = input("Ask about the weather: ").strip()
         if raw_prompt.lower() == "exit":
@@ -151,7 +174,10 @@ if __name__ == "__main__":
 
         city = extract_city(raw_prompt)
         if not city or len(city) < 3:
-            print("No city detected; please try again.\n")
+            print("❌ No city detected; please try again.\n")
             continue
 
-        asyncio.run(run(city))
+        print(f"\n🔍 Detected city: {city}")
+        asyncio.run(run_dynamic(city))
+        print()
+
