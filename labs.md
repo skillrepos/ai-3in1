@@ -757,7 +757,7 @@ streamlit run streamlit_app.py
 
 <br><br>
 
-12. When finished, stop the Streamlit apps with Ctrl-C in their respective terminals.
+12. When finished, stop the Streamlit app and the server with Ctrl-C in their respective terminals.
 
 <p align="center">
 **[END OF LAB]**
