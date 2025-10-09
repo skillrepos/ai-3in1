@@ -1,6 +1,6 @@
 # Canonical Queries: Three Architectural Approaches
 
-## 🏆 **RECOMMENDED**: Classification & Prompt Templates
+## Classification & Prompt Templates
 
 Your insight about classification and prompt templates is spot-on! This represents the most sophisticated and scalable approach.
 

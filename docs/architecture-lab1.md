@@ -42,7 +42,7 @@ graph TB
     style ChatOllama fill:#ffe8e8
 ```
 
-## Presentation Slide Diagram (Simple)
+## Simple Architecture Diagram
 
 ```mermaid
 flowchart LR
@@ -83,7 +83,7 @@ flowchart LR
 - **Method**: POST request with JSON payload
 - **Use Case**: Raw API integration
 
-#### Method 3: Python with LangChain (RECOMMENDED for Lab 1)
+#### Method 3: Python with LangChain
 - **Library**: `langchain-ollama`
 - **Class**: `ChatOllama`
 - **Protocol**: HTTP API wrapper with high-level interface

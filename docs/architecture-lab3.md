@@ -45,7 +45,7 @@ graph TB
     style Tool2 fill:#fff4e1
 ```
 
-## Presentation Slide Diagram (Simple)
+## Simple Architecture Diagram
 
 ```mermaid
 flowchart LR

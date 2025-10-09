@@ -77,7 +77,7 @@ graph TB
     style PDF fill:#e8f5e9
 ```
 
-## Presentation Slide Diagram (Simple)
+## Simple Architecture Diagram
 
 ```mermaid
 flowchart LR

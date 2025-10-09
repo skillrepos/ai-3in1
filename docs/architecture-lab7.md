@@ -63,7 +63,7 @@ graph TB
     style MCPServer fill:#e8f5e9
 ```
 
-## Presentation Slide Diagram (Simple)
+## Simple Architecture Diagram
 
 ```mermaid
 flowchart TD

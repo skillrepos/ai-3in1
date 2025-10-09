@@ -47,7 +47,7 @@ graph TB
     style Users fill:#ffe8e8
 ```
 
-## Presentation Slide Diagram (Simple)
+## Simple Architecture Diagram
 
 ```mermaid
 flowchart LR
