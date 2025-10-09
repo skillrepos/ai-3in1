@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Lab 3: Dynamic TAO Agent with FastMCP Weather Server
+Lab 3: TAO Agent with FastMCP Weather Server
 ────────────────────────────────────────────────────────────────────
 A TRUE agentic implementation where the LLM dynamically selects which
 tools to call and when to stop. This demonstrates:
@@ -9,12 +9,6 @@ tools to call and when to stop. This demonstrates:
 * **Dynamic Tool Selection**: LLM chooses which MCP tool to invoke each step
 * **Flexible Reasoning**: Can handle queries requiring different tool sequences
 * **TAO Protocol**: Full thought/action/observation trace with real agent behavior
-
-Key Differences from Original Lab 3:
-- LLM decides which tool to call (not hardcoded sequence)
-- LLM decides when to stop (not fixed 3 steps)
-- Parses Action line to determine tool name dynamically
-- Can handle variations in query structure
 
 Example Flows:
 1. Standard: geocode → get_weather → convert_c_to_f → DONE
@@ -80,6 +74,8 @@ ARGS_RE = re.compile(r"Args:\s*(\{.*?\})(?:\s|$)", re.S | re.IGNORECASE)
 # ╔══════════════════════════════════════════════════════════════════╗
 # ║ 2.  Robust unwrap helper                                         ║
 # ╚══════════════════════════════════════════════════════════════════╝
+# FastMCP wraps tool results in various formats depending on version.
+# This helper extracts the actual Python value from any wrapper format.
 def unwrap(obj):
     """Extract plain Python value from FastMCP wrapper objects."""
     if hasattr(obj, "structured_content") and obj.structured_content:
@@ -104,6 +100,8 @@ def unwrap(obj):
 # ╔══════════════════════════════════════════════════════════════════╗
 # ║ 3.  LLM-based city extractor (unchanged)                         ║
 # ╚══════════════════════════════════════════════════════════════════╝
+# Uses a separate LLM call to extract city names from natural language.
+# This handles inputs like "What's the weather in Paris?" → "Paris"
 extract_llm = ChatOllama(model="llama3.2", temperature=0.0)
 
 def extract_city(prompt: str) -> Optional[str]:
