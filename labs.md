@@ -816,16 +816,15 @@ hf repo create --repo-type space --space_sdk docker aiapp
 
 <br><br>
 
-9. **Monitor the deployment**:
-   - Go back to your Space page on Hugging Face
+9. Monitor your deployment by going to your space page on Hugging Face. Go to **https://huggingface.co/spaces/<userid>/aiapp**.
    - You'll see the build process and container execution in the logs
-   - The Space will automatically start once the build completes (usually 2-3 minutes)
+   - The Space will automatically start once the build completes (takes several minutes)
 
 ![Deployment in progress](./images/aiapps26.png?raw=true "Deployment in progress") 
 
 <br><br>
 
-10. **Test your deployed application**:
+10. Test your deployed application.
     - Once the Space is running, you'll see your Streamlit app
     - Try the same queries you tested locally
 
@@ -833,20 +832,13 @@ hf repo create --repo-type space --space_sdk docker aiapp
 
 <br><br>
 
-11. **Key features of the cloud deployment**:
-    - **Self-contained**: All intelligence runs in the browser without external dependencies
-      - **Scalable**: Hugging Face Spaces handles traffic automatically
 
-<br><br>
-
-
-12. **Share your Space**:
+11. You can share your URL to share your app with others.
     - Your Space is now publicly accessible at: `https://huggingface.co/spaces/YOUR_USERNAME/aiapp`
     - You can share this URL with others to demonstrate your AI application
 
 
 <br><br>
-
 
 
 **Congratulations!** You've successfully deployed an AI application with sophisticated classification capabilities on the web. Your application demonstrates advanced concepts like canonical query classification, use of RAG and MCP protocols and user-friendly AI interfaces.
