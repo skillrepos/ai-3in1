@@ -60,12 +60,15 @@ graph TB
 
 ```mermaid
 flowchart LR
-    Browser([Web Browser]) <-->|HTTP| Streamlit["Streamlit App  -8501"]
+    Browser([Web Browser]) <-->|HTTP| Streamlit["Streamlit App<br/>:8501"]
+    Streamlit -->|imports| Agent["RAG Agent<br/>(Lab 7)"]
     Streamlit <-->|Session State| Memory[(Memory Dashboard)]
-    Streamlit <-->|MCP| Server["MCP Server  -8000"]
+    Agent <-->|MCP Protocol| Server["MCP Server<br/>:8000"]
+    Agent -->|Results| Streamlit
     Streamlit -->|Display| Results([Visual Results])
 
     style Streamlit fill:#4CAF50,color:#fff
+    style Agent fill:#9C27B0,color:#fff
     style Memory fill:#2196F3,color:#fff
     style Server fill:#FF9800,color:#fff
 ```
