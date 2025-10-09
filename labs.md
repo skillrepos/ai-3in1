@@ -1,7 +1,7 @@
 # AI for App Development
 ## Building AI Apps that leverage agents, MCP, and RAG
 ## Session labs 
-## Revision 2.0 - 11/08/25
+## Revision 2.1 - 11/08/25
 ## (c) 2025 Tech Skills Transformations
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
@@ -647,9 +647,7 @@ What offices opened after 2014?
 
    This centralized architecture follows best practices.
 
-<br><br>
-
-10. The power of this architecture is that you can add new canonical queries just by updating the server configuration - no agent code changes needed. Type 'exit' when done to stop the agent.
+  The power of this architecture is that you can add new canonical queries just by updating the server configuration - no agent code changes needed. Type 'exit' when done to stop the agent.
 
 
 
