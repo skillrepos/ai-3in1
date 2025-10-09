@@ -8,8 +8,8 @@ Lab 4 introduces vector databases (ChromaDB) for semantic search and similarity 
 ```mermaid
 graph TB
     subgraph "Indexing Phase"
-        Source1[Source: offices.pdf]
-        Source2[Source: *.py files]
+        Source1["Source: offices.pdf"]
+        Source2["Source: *.py files"]
 
         Chunker[Text Chunker Split into chunks]
 
@@ -163,7 +163,7 @@ graph TD
         Q -.->|Distance: 0.25| V3
     end
 
-    Note[Cosine Similarity: Closer = More Similar]
+    Note["Cosine Similarity: Closer = More Similar"]
 
     style Q fill:#ffeb3b
     style V2 fill:#4caf50
@@ -199,7 +199,7 @@ User Query → Embed → Cosine Similarity Search → Top-K Results → Display
 graph LR
     A[Query Vector q = [0.16, -0.44, ...]] --> CS[Cosine Similarity]
     B[Document Vector d = [0.15, -0.42, ...]] --> CS
-    CS --> Score[Score: 0.98 Very Similar]
+    CS --> Score["Score: 0.98 Very Similar"]
 
     style CS fill:#e1f5ff
     style Score fill:#e8f5e9
@@ -216,17 +216,17 @@ Range: [-1, 1], typically [0, 1] for semantic search
 ```mermaid
 graph TB
     subgraph "Keyword Search"
-        KQ[Query: high revenue]
+        KQ["Query: high revenue"]
         KM[Exact Match Only]
-        KR[Finds: 'high revenue']
+        KR["Finds: 'high revenue'"]
         KQ --> KM --> KR
     end
 
     subgraph "Semantic/Vector Search"
-        SQ[Query: high revenue]
+        SQ["Query: high revenue"]
         SE[Embedding]
         SS[Similarity Search]
-        SR[Finds: 'high revenue' 'top earning' 'most profitable' '$85.5M']
+        SR["Finds: 'high revenue' 'top earning' 'most profitable' '$85.5M'"]
         SQ --> SE --> SS --> SR
     end
 
