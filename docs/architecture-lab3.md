@@ -20,9 +20,9 @@ graph TB
         MCPServer[FastMCP Server mcp_server.py]
 
         subgraph "Tool Registry"
-            Tool1[get_weather @mcp.tool]
-            Tool2[convert_c_to_f @mcp.tool]
-            Tool3[geocode_location @mcp.tool]
+            Tool1["get_weather()"]
+            Tool2["convert_c_to_f()"]
+            Tool3["geocode_location()"]
         end
 
         API[Open-Meteo API]
@@ -246,3 +246,4 @@ POST /mcp/call
 4. **Security**: Server can enforce access control
 5. **Versioning**: Server can manage tool versions
 6. **Language Agnostic**: Agents can be in different languages
+
