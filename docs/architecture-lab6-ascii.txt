@@ -1,12 +1,17 @@
 ================================================================================
-LAB 6 ARCHITECTURE: Classification-Based MCP Server
+LAB 6 ARCHITECTURE: Classification MCP Server with Vector Database
 ================================================================================
 
 OVERVIEW
 --------
-Introduces query classification as an MCP tool for intelligent routing between
-RAG (document search) and real-time tools (weather API), separating routing
-logic from agent implementation.
+Lab 6 transforms the MCP server to provide:
+1. Canonical query classification (keyword-based matching)
+2. Prompt template management
+3. Vector database for semantic search (ChromaDB)
+4. Dual data sources: CSV (structured) + PDF (embedded)
+
+This creates a centralized data layer where the MCP server owns both
+structured data and vector embeddings.
 
 
 SYSTEM ARCHITECTURE
@@ -15,42 +20,118 @@ SYSTEM ARCHITECTURE
 CLIENT SIDE                    NETWORK              SERVER SIDE :8000
 ───────────                    ───────              ──────────────────
 
-┌──────────────┐                                   ┌──────────────────┐
-│    AGENT     │                                   │ CLASSIFICATION   │
-│  agent.py    │                                   │ MCP SERVER       │
-│              │                                   │                  │
-│  ┌────────┐  │                                   │  ┌────────────┐  │
-│  │ Logic  │  │                                   │  │ Tool       │  │
-│  │ & LLM  │  │                                   │  │ Registry   │  │
-│  └────┬───┘  │                                   │  └──────┬─────┘  │
-│       │      │                                   │         │        │
-│       ▼      │                                   │         ▼        │
-│  ┌────────┐  │     HTTP :8000                    │  ┌────────────┐  │
-│  │ MCP    │◄─┼──────────────────────────────────►│  │ FastMCP    │  │
-│  │ Client │  │     POST /mcp/call                │  │ Server     │  │
-│  └────────┘  │     GET /mcp/tools                │  └──────┬─────┘  │
-│              │                                   │         │        │
-└──────────────┘                                   │         ▼        │
-                                                   │  ┌────────────┐  │
-                                                   │  │@mcp.tool() │  │
-                                                   │  ├────────────┤  │
-                                                   │  │classify_   │  │
-                                                   │  │query       │  │
-                                                   │  └──────┬─────┘  │
-                                                   │         │        │
-                                                   │         ▼        │
-                                                   │  ┌────────────┐  │
-                                                   │  │ LLM        │  │
-                                                   │  │ Classifier │  │
-                                                   │  │ (llama3.2) │  │
-                                                   │  └────────────┘  │
-                                                   └──────────────────┘
+┌──────────────┐                                   ┌──────────────────────┐
+│    AGENT     │                                   │ CLASSIFICATION MCP   │
+│  agent.py    │                                   │ SERVER               │
+│              │                                   │                      │
+│  ┌────────┐  │                                   │  ┌────────────────┐  │
+│  │ LLM    │  │                                   │  │ Initialization │  │
+│  │Execute │  │                                   │  │ (on startup)   │  │
+│  └────┬───┘  │                                   │  │ 1. Load        │  │
+│       │      │                                   │  │    Embedding   │  │
+│       ▼      │                                   │  │    Model       │  │
+│  ┌────────┐  │     HTTP :8000                    │  │ 2. Init        │  │
+│  │ MCP    │◄─┼──────────────────────────────────►│  │    ChromaDB    │  │
+│  │ Client │  │     POST /mcp/call                │  │ 3. Populate    │  │
+│  └────────┘  │     GET /mcp/tools                │  │    Collections │  │
+│              │                                   │  └────────┬───────┘  │
+└──────────────┘                                   │           │          │
+                                                   │           ▼          │
+                                                   │  ┌────────────────┐  │
+                                                   │  │ VECTOR DB      │  │
+                                                   │  │ (ChromaDB)     │  │
+                                                   │  │ ./mcp_chroma_db│  │
+                                                   │  ├────────────────┤  │
+                                                   │  │ Collections:   │  │
+                                                   │  │ • office_      │  │
+                                                   │  │   locations    │  │
+                                                   │  │   (PDF data)   │  │
+                                                   │  │ • office_      │  │
+                                                   │  │   analytics    │  │
+                                                   │  │   (CSV data)   │  │
+                                                   │  └────────┬───────┘  │
+                                                   │           │          │
+                                                   │           ▼          │
+                                                   │  ┌────────────────┐  │
+                                                   │  │ MCP TOOLS      │  │
+                                                   │  ├────────────────┤  │
+                                                   │  │ • classify_    │  │
+                                                   │  │   canonical_   │  │
+                                                   │  │   query        │  │
+                                                   │  │ • get_query_   │  │
+                                                   │  │   template     │  │
+                                                   │  │ • get_filtered_│  │
+                                                   │  │   office_data  │  │
+                                                   │  │ • vector_      │  │
+                                                   │  │   search_      │  │
+                                                   │  │   locations    │  │
+                                                   │  │ • vector_      │  │
+                                                   │  │   search_      │  │
+                                                   │  │   analytics    │  │
+                                                   │  │ • get_weather  │  │
+                                                   │  │ • geocode_     │  │
+                                                   │  │   location     │  │
+                                                   │  └────────────────┘  │
+                                                   └──────────────────────┘
 
 
-CLASSIFICATION WORKFLOW
------------------------
+VECTOR DATABASE ARCHITECTURE (NEW!)
+------------------------------------
 
-User Query: "What's the weather in Paris?"
+Data Flow: File → Embedding → ChromaDB
+
+┌─────────────────────────────────────────────────────────┐
+│ STARTUP INITIALIZATION (Server)                         │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  Step 1: Load Embedding Model                           │
+│  ┌────────────────────────────────────────────┐         │
+│  │ SentenceTransformer("all-MiniLM-L6-v2")    │         │
+│  │ - 384-dimensional vectors                  │         │
+│  │ - Semantic similarity via cosine distance  │         │
+│  └────────────────────────────────────────────┘         │
+│                                                          │
+│  Step 2: Initialize ChromaDB                            │
+│  ┌────────────────────────────────────────────┐         │
+│  │ PersistentClient(path="./mcp_chroma_db")   │         │
+│  │ - Persistent storage on disk               │         │
+│  │ - Survives server restarts                 │         │
+│  └────────────────────────────────────────────┘         │
+│                                                          │
+│  Step 3a: Populate Locations Collection                 │
+│  ┌────────────────────────────────────────────┐         │
+│  │ Source: data/offices.pdf                   │         │
+│  │ ├─ Extract lines with pdfplumber           │         │
+│  │ ├─ Embed each line → vector                │         │
+│  │ └─ Store in office_locations collection    │         │
+│  │                                             │         │
+│  │ Example document:                           │         │
+│  │ "Paris Office, 88 Champs-Élysées, ..."     │         │
+│  │ → [0.12, -0.45, 0.78, ...] (384 dims)      │         │
+│  └────────────────────────────────────────────┘         │
+│                                                          │
+│  Step 3b: Populate Analytics Collection                 │
+│  ┌────────────────────────────────────────────┐         │
+│  │ Source: data/offices.csv                   │         │
+│  │ ├─ Read rows with Pandas                   │         │
+│  │ ├─ Create descriptive text per row         │         │
+│  │ ├─ Embed text → vector                     │         │
+│  │ └─ Store in office_analytics collection    │         │
+│  │                                             │         │
+│  │ Example document:                           │         │
+│  │ "Chicago office with 95 employees and      │         │
+│  │  $52.3M revenue, opened in 2010"           │         │
+│  │ → [0.34, 0.12, -0.67, ...] (384 dims)      │         │
+│  │ + metadata: {city, employees, revenue, ...}│         │
+│  └────────────────────────────────────────────┘         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+
+CANONICAL QUERY WORKFLOW
+-------------------------
+
+User Query: "Which office has the most employees?"
 
     ┌─────────────────────┐
     │ 1. AGENT            │
@@ -59,403 +140,467 @@ User Query: "What's the weather in Paris?"
                │
                ▼
     ┌─────────────────────┐
-    │ 2. CALL MCP SERVER  │
-    │    classify_query() │
+    │ 2. CLASSIFY         │
+    │    MCP: classify_   │
+    │    canonical_query()│
     │    args: {          │
-    │      query: "..."   │
+    │      user_query     │
     │    }                │
     └──────────┬──────────┘
                │
-               │ HTTP POST
+               │ HTTP POST → MCP Server
+               │ Keyword matching
                ▼
     ┌─────────────────────┐
-    │ 3. MCP SERVER       │
-    │    Receive request  │
-    └──────────┬──────────┘
-               │
-               ▼
-    ┌─────────────────────┐
-    │ 4. LLM ANALYSIS     │
-    │    System prompt +  │
-    │    query            │
-    │                     │
-    │    Classify as:     │
-    │    • weather        │
-    │    • document       │
-    │    • general        │
-    └──────────┬──────────┘
-               │
-               ▼
-    ┌─────────────────────┐
-    │ 5. RETURN RESULT    │
+    │ 3. MCP RETURNS      │
     │    {                │
-    │      "category":    │
-    │        "weather",   │
-    │      "confidence":  │
-    │        0.95         │
+    │      suggested:     │
+    │        "employee_   │
+    │         analysis",  │
+    │      confidence:    │
+    │        0.85         │
     │    }                │
     └──────────┬──────────┘
                │
-               │ HTTP Response
                ▼
     ┌─────────────────────┐
-    │ 6. AGENT ROUTES     │
-    │    If weather:      │
-    │      → get_weather()│
-    │    If document:     │
-    │      → RAG search   │
-    │    If general:      │
-    │      → Direct LLM   │
+    │ 4. GET TEMPLATE     │
+    │    MCP: get_query_  │
+    │    template()       │
+    │    args: {          │
+    │      query_name:    │
+    │       "employee_    │
+    │        analysis"    │
+    │    }                │
+    └──────────┬──────────┘
+               │
+               │ HTTP POST → MCP Server
+               ▼
+    ┌─────────────────────┐
+    │ 5. MCP RETURNS      │
+    │    {                │
+    │      template:      │
+    │        "Analyze...", │
+    │      data_reqs:     │
+    │        ["employees",│
+    │         "city"]     │
+    │    }                │
+    └──────────┬──────────┘
+               │
+               ▼
+    ┌─────────────────────┐
+    │ 6. GET DATA         │
+    │    MCP: get_        │
+    │    filtered_office_ │
+    │    data()           │
+    │    args: {          │
+    │      columns:       │
+    │        ["employees",│
+    │         "city"]     │
+    │    }                │
+    └──────────┬──────────┘
+               │
+               │ HTTP POST → MCP Server
+               │ Reads CSV with Pandas
+               ▼
+    ┌─────────────────────┐
+    │ 7. MCP RETURNS      │
+    │    {                │
+    │      data: [        │
+    │        {city: "NY", │
+    │         employees:  │
+    │           120},     │
+    │        ...          │
+    │      ]              │
+    │    }                │
+    └──────────┬──────────┘
+               │
+               ▼
+    ┌─────────────────────┐
+    │ 8. AGENT EXECUTES   │
+    │    LLM locally:     │
+    │    prompt = template│
+    │      .format(data)  │
+    │                     │
+    │    LLM analyzes     │
+    │    and responds     │
+    └──────────┬──────────┘
+               │
+               ▼
+    ┌─────────────────────┐
+    │ 9. FINAL ANSWER     │
+    │   "New York office  │
+    │    has the most     │
+    │    employees: 120"  │
     └─────────────────────┘
 
 
-CLASSIFICATION PROMPT TEMPLATE
--------------------------------
+VECTOR SEARCH WORKFLOW (NEW!)
+------------------------------
 
-┌────────────────────────────────────────────────────────────┐
-│ SYSTEM PROMPT                                              │
-├────────────────────────────────────────────────────────────┤
-│ You are a query classifier. Categorize user queries into: │
-│                                                            │
-│ 1. "weather" - Questions about current/forecast weather   │
-│    Examples:                                               │
-│    - "What's the weather in Paris?"                        │
-│    - "Will it rain tomorrow in London?"                    │
-│    - "Temperature in Tokyo?"                               │
-│                                                            │
-│ 2. "document" - Questions about office data/documents      │
-│    Examples:                                               │
-│    - "Which office has highest revenue?"                   │
-│    - "How many employees in New York?"                     │
-│    - "What offices are in California?"                     │
-│                                                            │
-│ 3. "general" - General questions not fitting above        │
-│    Examples:                                               │
-│    - "What is the capital of France?"                      │
-│    - "How does photosynthesis work?"                       │
-│    - "Tell me a joke"                                      │
-│                                                            │
-│ Respond with ONLY the category name (no explanation).     │
-└────────────────────────────────────────────────────────────┘
+User Query: "What's the weather at HQ?"
 
-┌────────────────────────────────────────────────────────────┐
-│ USER QUERY                                                 │
-├────────────────────────────────────────────────────────────┤
-│ {query}                                                    │
-└────────────────────────────────────────────────────────────┘
+    ┌─────────────────────┐
+    │ 1. AGENT            │
+    │    Detect weather   │
+    │    query keyword    │
+    └──────────┬──────────┘
+               │
+               ▼
+    ┌─────────────────────┐
+    │ 2. VECTOR SEARCH    │
+    │    MCP: vector_     │
+    │    search_locations │
+    │    args: {          │
+    │      query: "HQ",   │
+    │      top_k: 5       │
+    │    }                │
+    └──────────┬──────────┘
+               │
+               │ HTTP POST → MCP Server
+               ▼
+    ┌─────────────────────────────────────┐
+    │ 3. MCP VECTOR SEARCH                │
+    │                                     │
+    │  a) Embed query "HQ"                │
+    │     → [0.23, -0.67, ...] (384 dims) │
+    │                                     │
+    │  b) ChromaDB cosine similarity      │
+    │     search in office_locations      │
+    │                                     │
+    │  c) Find top 5 most similar docs    │
+    └─────────────┬───────────────────────┘
+                  │
+                  ▼
+    ┌─────────────────────────────────────┐
+    │ 4. MCP RETURNS MATCHES              │
+    │    {                                │
+    │      matches: [                     │
+    │        {                            │
+    │          document: "New York HQ...", │
+    │          distance: 0.12,            │
+    │          metadata: {...}            │
+    │        },                           │
+    │        ...                          │
+    │      ]                              │
+    │    }                                │
+    └─────────────┬───────────────────────┘
+                  │
+                  ▼
+    ┌─────────────────────┐
+    │ 5. AGENT EXTRACTS   │
+    │    Parse coords or  │
+    │    city name from   │
+    │    top match        │
+    └──────────┬──────────┘
+               │
+               ▼
+    ┌─────────────────────┐
+    │ 6. GET WEATHER      │
+    │    MCP: get_weather │
+    │    (lat, lon)       │
+    └──────────┬──────────┘
+               │
+               ▼
+    ┌─────────────────────┐
+    │ 7. GENERATE SUMMARY │
+    │    Agent's LLM      │
+    │    creates friendly │
+    │    weather summary  │
+    └─────────────────────┘
 
 
-CLASSIFICATION EXAMPLES
+CANONICAL QUERIES DEFINED
+--------------------------
+
+The server defines 5 canonical queries:
+
+1. revenue_stats
+   - Description: Calculate revenue statistics
+   - Parameters: None
+   - Data Requirements: ["revenue_million", "city"]
+   - Example Queries:
+     • "What's the average revenue?"
+     • "Which office has the highest revenue?"
+
+2. employee_analysis
+   - Description: Analyze employee distribution
+   - Parameters: None
+   - Data Requirements: ["employees", "city"]
+   - Example Queries:
+     • "Which office has the most employees?"
+     • "Show me employee statistics"
+
+3. efficiency_analysis
+   - Description: Calculate revenue per employee
+   - Parameters: None
+   - Data Requirements: ["revenue_million", "employees", "city"]
+   - Example Queries:
+     • "Which office is most efficient?"
+     • "Show me revenue per employee"
+
+4. growth_analysis
+   - Description: Analyze office growth patterns
+   - Parameters: [{"name": "year_threshold", "type": "int"}]
+   - Data Requirements: ["opened_year", "city", "state"]
+   - Example Queries:
+     • "What offices opened after 2014?"
+     • "Show me growth since 2010"
+
+5. office_profile
+   - Description: Detailed profile of specific office
+   - Parameters: [{"name": "city", "type": "str"}]
+   - Data Requirements: ["city", "state", "employees", "revenue_million", "opened_year"]
+   - Example Queries:
+     • "Tell me about the Chicago office"
+     • "What's the profile of New York?"
+
+
+KEYWORD-BASED CLASSIFICATION
+-----------------------------
+
+Classification Algorithm:
+
+┌─────────────────────────────────────────────────────┐
+│ def classify_canonical_query(user_query: str):     │
+│                                                     │
+│   scores = {}                                       │
+│   user_lower = user_query.lower()                  │
+│                                                     │
+│   for query_name, config in CANONICAL_QUERIES:     │
+│     score = 0                                       │
+│                                                     │
+│     # Check example query overlap                  │
+│     for example in config["example_queries"]:      │
+│       example_words = set(example.lower().split()) │
+│       user_words = set(user_lower.split())         │
+│       overlap = len(example_words ∩ user_words)    │
+│       if overlap > 0:                              │
+│         score += overlap / len(example_words)      │
+│                                                     │
+│     # Keyword boosting                             │
+│     if "revenue" in user_lower and                 │
+│        "revenue" in query_name:                    │
+│       score += 0.5                                 │
+│                                                     │
+│     if "employee" in user_lower and                │
+│        "employee" in query_name:                   │
+│       score += 0.5                                 │
+│                                                     │
+│     scores[query_name] = score                     │
+│                                                     │
+│   best = max(scores, key=scores.get)               │
+│   confidence = min(scores[best], 1.0)              │
+│                                                     │
+│   return {                                          │
+│     "suggested_query": best,                        │
+│     "confidence": confidence                        │
+│   }                                                 │
+└─────────────────────────────────────────────────────┘
+
+
+DATA LAYER ARCHITECTURE
 -----------------------
 
-Example 1: Weather Query
-Input:  "What's the temperature in Paris?"
-Output: {
-          "category": "weather",
-          "confidence": 0.98,
-          "reasoning": "Query asks about temperature (weather metric)"
-        }
+MCP Server owns ALL data:
 
-Example 2: Document Query
-Input:  "Which office has most employees?"
-Output: {
-          "category": "document",
-          "confidence": 0.95,
-          "reasoning": "Query about office data in documents"
-        }
-
-Example 3: General Query
-Input:  "What is machine learning?"
-Output: {
-          "category": "general",
-          "confidence": 0.90,
-          "reasoning": "General knowledge question"
-        }
-
-Example 4: Ambiguous Query
-Input:  "Tell me about New York"
-Output: {
-          "category": "document",
-          "confidence": 0.60,
-          "reasoning": "Could be asking about office data"
-        }
-
-
-ROUTING DECISION TREE
----------------------
-
-                        User Query
-                            │
-                            ▼
-                  ┌──────────────────┐
-                  │ classify_query() │
-                  │  (MCP Server)    │
-                  └────────┬─────────┘
-                           │
-          ┌────────────────┼────────────────┐
-          │                │                │
-          ▼                ▼                ▼
-    ┌──────────┐     ┌──────────┐    ┌──────────┐
-    │ "weather"│     │"document"│    │"general" │
-    └────┬─────┘     └────┬─────┘    └────┬─────┘
-         │                │               │
-         ▼                ▼               ▼
-    ┌──────────┐     ┌──────────┐    ┌──────────┐
-    │ get_     │     │ RAG      │    │ Direct   │
-    │ weather()│     │ Pipeline │    │ LLM      │
-    │          │     │          │    │          │
-    │ Call API │     │ 1. Search│    │ No tools │
-    │ Return   │     │ 2. Retr. │    │ General  │
-    │ forecast │     │ 3. Gen.  │    │ response │
-    └────┬─────┘     └────┬─────┘    └────┬─────┘
-         │                │               │
-         └────────────────┼───────────────┘
-                          │
-                          ▼
-                   ┌──────────────┐
-                   │ Final Answer │
-                   │ to User      │
-                   └──────────────┘
+┌─────────────────────────────────────────────────┐
+│ DATA SOURCES                                    │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│ 1. Structured Data (CSV)                        │
+│    ┌───────────────────────────┐               │
+│    │ data/offices.csv          │               │
+│    │ ─────────────────────────│               │
+│    │ city, state, employees,   │               │
+│    │ revenue_million,          │               │
+│    │ opened_year               │               │
+│    │                           │               │
+│    │ Accessed via Pandas       │               │
+│    │ Tools:                    │               │
+│    │ • get_office_dataset()    │               │
+│    │ • get_filtered_office_    │               │
+│    │   data()                  │               │
+│    └───────────────────────────┘               │
+│                                                 │
+│ 2. Unstructured Data (PDF)                      │
+│    ┌───────────────────────────┐               │
+│    │ data/offices.pdf          │               │
+│    │ ─────────────────────────│               │
+│    │ Office locations, addresses│              │
+│    │ coordinates, descriptions │               │
+│    │                           │               │
+│    │ Accessed via pdfplumber   │               │
+│    │ Tools:                    │               │
+│    │ • search_office_locations()│              │
+│    │   (legacy keyword search) │               │
+│    └───────────────────────────┘               │
+│                                                 │
+│ 3. Vector Embeddings (ChromaDB) - NEW!          │
+│    ┌───────────────────────────┐               │
+│    │ ./mcp_chroma_db/          │               │
+│    │ ─────────────────────────│               │
+│    │ Collection 1:             │               │
+│    │   office_locations        │               │
+│    │   - PDF lines embedded    │               │
+│    │   - ~100+ documents       │               │
+│    │                           │               │
+│    │ Collection 2:             │               │
+│    │   office_analytics        │               │
+│    │   - CSV rows embedded     │               │
+│    │   - ~10 documents         │               │
+│    │   - With metadata         │               │
+│    │                           │               │
+│    │ Tools:                    │               │
+│    │ • vector_search_          │               │
+│    │   locations()             │               │
+│    │ • vector_search_          │               │
+│    │   analytics()             │               │
+│    └───────────────────────────┘               │
+└─────────────────────────────────────────────────┘
 
 
-MCP SERVER IMPLEMENTATION
--------------------------
-
-File: mcp_server_classification.py
-
-from fastmcp import FastMCP
-from langchain_ollama import ChatOllama
-
-mcp = FastMCP("Classification Server")
-llm = ChatOllama(model="llama3.2")
-
-@mcp.tool()
-def classify_query(query: str) -> dict:
-    """
-    Classify query into: weather, document, or general.
-
-    Args:
-        query: User's question
-
-    Returns:
-        {
-          "category": str,
-          "confidence": float,
-          "reasoning": str
-        }
-    """
-
-    # Classification prompt
-    system_prompt = """You are a query classifier..."""
-
-    # Call LLM
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": query}
-    ]
-
-    response = llm.invoke(messages)
-    category = response.content.strip().lower()
-
-    # Validate category
-    valid_categories = ["weather", "document", "general"]
-    if category not in valid_categories:
-        category = "general"
-
-    return {
-        "category": category,
-        "confidence": 0.9,  # Could use LLM confidence scoring
-        "reasoning": f"Classified as {category}"
-    }
-
-
-AGENT INTEGRATION
+MCP TOOLS SUMMARY
 -----------------
 
-Agent code uses classification result:
+Classification Tools:
+• classify_canonical_query(user_query) → suggested query
+• get_query_template(query_name, ...) → template + data_requirements
+• validate_query_parameters(query_name, params) → validation result
 
-from fastmcp import Client
+Data Access Tools:
+• get_office_dataset() → complete CSV data
+• get_filtered_office_data(columns, filters) → filtered CSV data
+• search_office_locations(query) → keyword search in PDF [LEGACY]
+• get_all_office_locations() → all PDF locations
 
-async def handle_query(query: str):
-    # Step 1: Classify
-    async with Client("http://127.0.0.1:8000/mcp/") as mcp:
-        result = await mcp.call_tool(
-            "classify_query",
-            {"query": query}
-        )
+Vector Search Tools (NEW!):
+• vector_search_locations(query, top_k) → semantic search in PDF
+• vector_search_analytics(query, top_k) → semantic search in CSV
 
-        category = result["category"]
-
-    # Step 2: Route based on classification
-    if category == "weather":
-        # Use weather tool
-        return await get_weather_answer(query)
-
-    elif category == "document":
-        # Use RAG pipeline
-        return await get_rag_answer(query)
-
-    else:  # general
-        # Direct LLM response
-        return await get_general_answer(query)
+Weather Tools (from Lab 3):
+• get_weather(lat, lon) → weather data
+• geocode_location(name) → coordinates
+• convert_c_to_f(c) → temperature conversion
 
 
-CLASSIFICATION ACCURACY
------------------------
+ARCHITECTURE BENEFITS
+---------------------
 
-Test Set Results (100 queries):
+1. CENTRALIZED DATA LAYER
+   ✓ MCP server owns all data sources
+   ✓ Single source of truth
+   ✓ Easier to maintain and update
+   ✓ Can serve multiple agents
 
-Category      Precision  Recall  F1-Score  Count
-────────      ─────────  ──────  ────────  ─────
-weather       0.98       0.95    0.96      30
-document      0.92       0.94    0.93      40
-general       0.88       0.90    0.89      30
+2. DUAL ACCESS PATTERNS
+   ✓ Structured queries → CSV data
+   ✓ Semantic queries → Vector search
+   ✓ Choose best method per query type
 
-Overall Accuracy: 93%
+3. SEMANTIC SEARCH CAPABILITY
+   ✓ Fuzzy matching ("HQ" → "New York Headquarters")
+   ✓ Synonym handling
+   ✓ Context-aware similarity
 
-Confusion Matrix:
-                Predicted
-              W    D    G
-Actual  W    28   1    1
-        D     1   37   2
-        G     2   1   27
+4. INITIALIZATION ON STARTUP
+   ✓ Vector DB populated once
+   ✓ Fast query-time performance
+   ✓ No embedding overhead per query
 
-Key Findings:
-- Weather classification most accurate (clear keywords)
-- Document vs General sometimes confused
-- Low false positive rate for weather
-
-
-PERFORMANCE CHARACTERISTICS
-----------------------------
-
-Metric                  Value
-──────                  ─────
-Classification latency  100-300 ms
-  - LLM inference       80-250 ms
-  - Network overhead    10-30 ms
-  - Parsing             5-10 ms
-
-Throughput              ~10 queries/sec
-Memory usage            ~500 MB (LLM loaded)
-Model size              1.5 GB (llama3.2)
-
-Comparison: Rule-based vs LLM-based
-                        Rule-based    LLM-based
-Latency                 <1 ms         100-300 ms
-Accuracy                70-80%        90-95%
-Flexibility             Low           High
-Maintenance             High          Low
-
-
-BENEFITS OF MCP SEPARATION
----------------------------
-
-BEFORE (Hardcoded Classification):
-┌──────────────────────────┐
-│       AGENT              │
-│  ┌────────────────────┐  │
-│  │ Agent Logic        │  │
-│  ├────────────────────┤  │
-│  │ Classification     │  │  ← Tightly coupled
-│  │ (if "weather" in   │  │
-│  │  query...)         │  │
-│  ├────────────────────┤  │
-│  │ Weather Tool       │  │
-│  ├────────────────────┤  │
-│  │ RAG Tool           │  │
-│  └────────────────────┘  │
-└──────────────────────────┘
-
-✗ Hard to update classification logic
-✗ Can't share classifier with other agents
-✗ Testing classification requires running full agent
-
-
-AFTER (MCP Classification Server):
-┌──────────────┐         ┌──────────────────┐
-│    AGENT     │         │ MCP SERVER       │
-│ ┌──────────┐ │   MCP   │  ┌────────────┐  │
-│ │  Logic   │ │ Protocol│  │ classify_  │  │
-│ └────┬─────┘ │◄───────►│  │ query      │  │
-│      │       │         │  └────────────┘  │
-└──────┼───────┘         └──────────────────┘
-       │
-       ├─ get_weather()
-       └─ RAG pipeline
-
-✓ Classification logic separated
-✓ Multiple agents can use same classifier
-✓ Easy to test classification independently
-✓ Can swap classification implementation
+5. PERSISTENT STORAGE
+   ✓ ChromaDB persists to disk
+   ✓ No re-embedding after restart
+   ✓ Production-ready
 
 
 COMPARISON: LAB 5 VS LAB 6
 ---------------------------
 
-Aspect              Lab 5 (RAG)         Lab 6 (Classification)
-──────              ───────────         ──────────────────────
-Routing             Manual/keywords     LLM-based classification
-Separation          Monolithic          MCP server
-Accuracy            Low (~70%)          High (~93%)
-Flexibility         Rigid               Adaptive
-Reusability         None                High
-Latency overhead    0 ms                +100-300 ms
+Aspect              Lab 5 (RAG)         Lab 6 (Classification + VectorDB)
+──────              ───────────         ──────────────────────────────────
+Vector DB Location  Agent (local)       MCP Server (centralized)
+Data Access         Agent reads files   Agent uses MCP tools
+Embeddings          Agent creates       Server creates on startup
+Query Types         Weather only        Weather + Analytics
+Classification      None                Keyword-based canonical queries
+Templates           None                Prompt templates from server
+Structured Data     None                CSV via Pandas
+Architecture        Monolithic          Microservices-style separation
+Reusability         Low                 High (multiple agents)
+Latency             Medium              Medium-Low (pre-computed embeddings)
+
+
+PERFORMANCE CHARACTERISTICS
+----------------------------
+
+Metric                      Value
+──────                      ─────
+Classification latency      10-50 ms (keyword matching)
+Vector search latency       50-150 ms (ChromaDB query)
+Template retrieval          <10 ms (in-memory lookup)
+CSV data retrieval          10-30 ms (Pandas filtering)
+Startup time                5-15 seconds (embedding + populate)
+
+Memory usage:
+  - Embedding model         ~250 MB
+  - ChromaDB                ~50-100 MB
+  - Server overhead         ~100 MB
+  - Total                   ~400-450 MB
+
+Disk usage:
+  - ChromaDB storage        ~10-50 MB (depends on data size)
 
 
 KEY LEARNING POINTS
 -------------------
 
-1. QUERY CLASSIFICATION
-   - Intent detection
-   - Category assignment
-   - Confidence scoring
+1. CENTRALIZED DATA LAYER
+   - MCP server owns vector database
+   - Single source of truth for data
+   - Microservices-style architecture
 
-2. INTELLIGENT ROUTING
-   - Use classification to route
-   - Different paths for different needs
-   - Optimize for query type
+2. DUAL DATA ACCESS
+   - Structured (CSV) + Unstructured (PDF)
+   - Different tools for different needs
+   - Vector embeddings for both
 
-3. MCP FOR CLASSIFICATION
-   - Classifier as a service
-   - Reusable across agents
-   - Easy to update/improve
+3. SEMANTIC SEARCH
+   - Vector embeddings enable fuzzy matching
+   - Better than keyword search
+   - Cosine similarity for relevance
 
-4. LLM AS CLASSIFIER
-   - More flexible than rules
-   - Handles edge cases
-   - Adapts to natural language
+4. CANONICAL QUERIES
+   - Predefined query patterns
+   - Keyword-based classification
+   - Template-driven LLM execution
 
-5. SEPARATION OF CONCERNS
-   - Routing logic separate from agent
-   - Classification separate from execution
-   - Modular architecture
+5. STARTUP INITIALIZATION
+   - Populate vector DB once
+   - Fast query performance
+   - Persistent storage
 
-
-LIMITATIONS
------------
-
-- Classification adds latency (100-300ms)
-- Misclassification leads to wrong tools
-- Requires LLM for classification (cost/resources)
-- Fixed categories (not dynamic)
-- Confidence scoring is approximate
+6. SEPARATION OF CONCERNS
+   - Server: Classification + Templates + Data
+   - Client: LLM execution + Formatting
+   - Clear boundaries
 
 
 USE CASES
 ---------
 
-✓ Multi-tool agents with intelligent routing
-✓ Customer support bots (FAQ vs Live vs Search)
-✓ Intent classification for chatbots
-✓ Query triaging systems
-✓ Adaptive dialog systems
+✓ Business analytics with natural language queries
+✓ Multi-source data access (structured + unstructured)
+✓ Semantic search over documents
+✓ Intelligent query routing
+✓ Multi-agent systems with shared data layer
+✓ Production RAG with centralized embeddings
 
 
 NEXT STEPS
 ----------
 
-Lab 7: Combine classification + RAG for smart document routing
-       Add memory to classification for context-aware routing
+Lab 7: Build agent that uses MCP's vector search (no local RAG)
+       Demonstrates MCP-centric architecture with clean separation
 
 ================================================================================
