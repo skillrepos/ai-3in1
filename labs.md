@@ -825,13 +825,15 @@ hf repo create --repo-type space --space_sdk docker aiapp
    hf upload --repo-type space aiapp .
    ```
 
+![Uploading](./images/aiapps26.png?raw=true "Uploading")
+
 <br><br>
 
 9. Monitor your deployment by going to your space page on Hugging Face. Go to **https://huggingface.co/spaces/<userid>/aiapp**.
    - You'll see the build process and container execution in the logs
    - The Space will automatically start once the build completes (takes several minutes)
 
-![Deployment in progress](./images/aiapps26.png?raw=true "Deployment in progress") 
+![Deployment in progress](./images/aiapps35.png?raw=true "Deployment in progress") 
 
 <br><br>
 
