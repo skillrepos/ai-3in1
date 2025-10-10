@@ -1,48 +1,57 @@
 # Lab 9 Architecture: Deploying to Hugging Face Spaces
 
 ## Overview
-Lab 9 focuses on deploying the Streamlit app to Hugging Face Spaces, making the AI assistant publicly accessible with cloud-based inference.
+Lab 9 deploys the **complete Lab 8 architecture** to Hugging Face Spaces - including the Streamlit app, RAG agent, MCP server, and Ollama - all running in a single Docker container. This makes the full AI assistant publicly accessible with the same capabilities as local development.
 
 ## Detailed Architecture Diagram
 
 ```mermaid
 graph TB
     subgraph "Hugging Face Cloud Infrastructure"
-        subgraph "Space Container"
-            App[Streamlit App app.py]
+        subgraph "Docker Container (Single Space)"
+            Startup["huggingface_space.py<br/>Process Manager"]
 
-            subgraph "Embedded Components"
-                Agent[RAG Agent Embedded Logic]
-                Fallback[Fallback Mode No MCP Server]
-                Data[(Embedded offices.csv)]
+            subgraph "Running Services"
+                Ollama["Ollama Server<br/>:11434<br/>llama3.2:1b model"]
+                MCP["MCP Server<br/>:8000<br/>mcp_server_classification.py"]
+                Streamlit["Streamlit App<br/>:7860<br/>streamlit_app.py"]
             end
 
-            subgraph "Local Resources"
-                Ollama[Ollama Server llama3.2:1b]
-                ChromaDB[(ChromaDB Vector Index)]
+            subgraph "Application Layer"
+                Agent["RAG Agent<br/>rag_agent_classification.py"]
+                Data["Data Files<br/>offices.csv<br/>offices.pdf"]
             end
 
-            App --> Agent
-            Agent --> Fallback
-            Agent --> Data
-            Agent --> Ollama
-            Agent --> ChromaDB
+            subgraph "Storage"
+                ChromaDB["ChromaDB<br/>/tmp/mcp_chroma_db<br/>Vector Index"]
+            end
+
+            Startup -->|Starts| Ollama
+            Startup -->|Starts| MCP
+            Startup -->|Starts| Streamlit
+            Streamlit -->|imports| Agent
+            Agent <-->|MCP Protocol| MCP
+            MCP --> Data
+            MCP --> ChromaDB
+            Agent -->|LLM calls| Ollama
         end
 
         subgraph "Hugging Face Services"
-            Inference[Inference API Optional]
-            Storage[Persistent Storage Vector DB]
+            Storage[Persistent Storage]
             CDN[CDN for Static Files]
+            Logs[Application Logs]
         end
 
-        App --> Inference
-        ChromaDB --> Storage
+        ChromaDB -.->|Optional| Storage
+        Streamlit --> Logs
     end
 
-    Users[Public Users Internet] -->|HTTPS| App
+    Users[Public Users<br/>Internet] -->|HTTPS| Streamlit
 
-    style App fill:#e1f5ff
-    style Fallback fill:#fff4e1
+    style Startup fill:#9C27B0,color:#fff
+    style Streamlit fill:#4CAF50,color:#fff
+    style Agent fill:#2196F3,color:#fff
+    style MCP fill:#FF9800,color:#fff
     style Ollama fill:#e8f5e9
     style Users fill:#ffe8e8
 ```
@@ -52,14 +61,24 @@ graph TB
 ```mermaid
 flowchart LR
     Users([Public Users]) -->|HTTPS| HF[Hugging Face Space]
-    HF -->|Runs| Streamlit[Streamlit App]
-    Streamlit -->|Embedded| Agent[RAG Agent]
-    Agent -->|Local| Ollama[Ollama llama3.2:1b]
-    Agent -->|Local| DB[(ChromaDB)]
+
+    subgraph Container["Docker Container"]
+        Startup[huggingface_space.py] -->|starts| Ollama[Ollama Server]
+        Startup -->|starts| MCP[MCP Server]
+        Startup -->|starts| Streamlit[Streamlit App]
+        Streamlit -->|imports| Agent[RAG Agent<br/>Lab 7]
+        Agent <-->|MCP Protocol| MCP
+        Agent -->|LLM| Ollama
+        MCP --> DB[(ChromaDB)]
+    end
+
+    HF --> Container
 
     style HF fill:#FF9800,color:#fff
+    style Startup fill:#9C27B0,color:#fff
     style Streamlit fill:#4CAF50,color:#fff
     style Agent fill:#2196F3,color:#fff
+    style MCP fill:#FF6F00,color:#fff
 ```
 
 ## Deployment Architecture Comparison
@@ -68,29 +87,38 @@ flowchart LR
 graph TB
     subgraph "Local Development (Lab 8)"
         L_Browser[Browser] <--> L_Streamlit[Streamlit :8501]
-        L_Streamlit <--> L_MCP[MCP Server :8000]
-        L_Streamlit <--> L_Ollama[Ollama :11434]
-        L_Streamlit <--> L_DB[(ChromaDB)]
+        L_Streamlit -->|imports| L_Agent[RAG Agent]
+        L_Agent <--> L_MCP[MCP Server :8000]
+        L_Agent --> L_Ollama[Ollama :11434]
+        L_MCP --> L_DB[(ChromaDB)]
 
-        Note1[Multiple Processes Separate Services]
+        Note1["Multiple Terminal Windows<br/>Manual Process Management"]
     end
 
     subgraph "Hugging Face Deployment (Lab 9)"
         H_Internet[Internet] -->|HTTPS| H_HF[HF Space]
-        H_HF --> H_App[Streamlit App]
 
-        subgraph "Single Container"
-            H_App --> H_Agent[Embedded Agent]
-            H_Agent --> H_Ollama[Ollama Downloaded]
-            H_Agent --> H_DB[(ChromaDB Built-in)]
-            H_Agent --> H_CSV[(offices.csv Included)]
+        subgraph "Single Docker Container"
+            H_Startup[huggingface_space.py] -->|manages| H_Processes[3 Processes]
+            H_Processes --> H_Streamlit[Streamlit :7860]
+            H_Processes --> H_MCP[MCP Server :8000]
+            H_Processes --> H_Ollama[Ollama :11434]
+            H_Streamlit -->|imports| H_Agent[RAG Agent]
+            H_Agent <--> H_MCP
+            H_Agent --> H_Ollama
+            H_MCP --> H_DB[(ChromaDB)]
         end
 
-        Note2[Single Container All-in-One]
+        H_HF --> H_Startup
+
+        Note2["Automated Process Management<br/>Same Architecture, Different Deployment"]
     end
 
-    style L_MCP fill:#f44336,color:#fff
-    style H_App fill:#4caf50,color:#fff
+    style L_Agent fill:#2196F3,color:#fff
+    style L_MCP fill:#FF9800,color:#fff
+    style H_Startup fill:#9C27B0,color:#fff
+    style H_Agent fill:#2196F3,color:#fff
+    style H_MCP fill:#FF9800,color:#fff
 ```
 
 ## Component Details
@@ -101,26 +129,30 @@ graph TB
 ```yaml
 ---
 title: AI Office Assistant
-emoji: 📊
+emoji: 🏢
 colorFrom: blue
 colorTo: green
-sdk: streamlit
-sdk_version: "1.28.0"
-app_file: app.py
+sdk: docker
+sdk_version: 1.40.0
+app_file: streamlit_app.py
 pinned: false
-python_version: "3.10"
+license: mit
 ---
 ```
 
 ### 2. Dockerfile for Hugging Face
 
 ```dockerfile
-FROM python:3.10-slim
+FROM python:3.11-slim
 
-# Install system dependencies
+# Install system dependencies (Ollama, build tools)
 RUN apt-get update && apt-get install -y \
     curl \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Ollama
+RUN curl -fsSL https://ollama.com/install.sh | sh
 
 # Set working directory
 WORKDIR /app
@@ -128,68 +160,64 @@ WORKDIR /app
 # Copy application files
 COPY . .
 
+# Create writable directories for ChromaDB
+RUN mkdir -p /tmp/mcp_chroma_db && \
+    chmod -R 777 /tmp/mcp_chroma_db
+
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Download Ollama
-RUN curl -L https://ollama.ai/install.sh | sh
-
-# Pull llama3.2:1b model
-RUN ollama pull llama3.2:1b
-
-# Expose Streamlit port
+# Expose Streamlit port (HF Spaces uses 7860)
 EXPOSE 7860
 
-# Start script
-CMD ["sh", "start_huggingface_space.py"]
+# Start script runs Ollama, MCP server, and Streamlit
+CMD ["python3", "huggingface_space.py"]
 ```
 
-### 3. Embedded Agent (app.py)
+### 3. Process Manager (huggingface_space.py)
 
 ```python
-# app.py - Optimized for Hugging Face Spaces
+# huggingface_space.py - Manages all services
 
-# Embedded logic - no MCP server needed
-def analyze_offices_embedded(canonical_query: str, df) -> str:
-    """Direct execution without MCP"""
-    if canonical_query == "highest_revenue":
-        idx = df["revenue_million"].idxmax()
-        return f"{df.loc[idx, 'city']}: ${df.loc[idx, 'revenue_million']}M"
-    # ... more queries
+class ProcessManager:
+    def start_ollama(self):
+        """Start Ollama and pull llama3.2:1b model"""
+        self.ollama_process = subprocess.Popen(["ollama", "serve"])
+        time.sleep(5)
+        subprocess.run(["ollama", "pull", "llama3.2:1b"])
 
-def classify_query_embedded(query: str) -> str:
-    """LLM classification without MCP"""
-    llm = ChatOllama(model="llama3.2:1b", temperature=0)
-    # Direct classification logic
-    return canonical_query
+    def start_mcp_server(self):
+        """Start MCP classification server on :8000"""
+        self.mcp_process = subprocess.Popen(
+            ["python3", "mcp_server_classification.py"]
+        )
+        self.wait_for_mcp_server()
 
-# Use embedded functions instead of MCP calls
-result = analyze_offices_embedded(canonical, df)
+    def start_streamlit_app(self):
+        """Start Streamlit app on :7860"""
+        cmd = [
+            "python3", "-m", "streamlit", "run",
+            "streamlit_app.py",
+            "--server.port", "7860",
+            "--server.address", "0.0.0.0"
+        ]
+        self.streamlit_process = subprocess.Popen(cmd)
+
+# Main startup
+manager = ProcessManager()
+manager.start_ollama()      # 1. Start Ollama
+manager.start_mcp_server()  # 2. Start MCP Server
+manager.start_streamlit_app()  # 3. Start Streamlit
 ```
 
-### 4. Startup Script
+### 4. Application Stack
 
-```python
-# start_huggingface_space.py
+The deployment uses the **same code as Lab 8**:
+- **streamlit_app.py**: Web UI (unchanged)
+- **rag_agent_classification.py**: RAG agent with classification (unchanged)
+- **mcp_server_classification.py**: MCP server with tools (unchanged)
 
-import subprocess
-import time
-import os
-
-# Start Ollama in background
-ollama_process = subprocess.Popen(["ollama", "serve"])
-time.sleep(5)  # Wait for Ollama to start
-
-# Ensure model is available
-subprocess.run(["ollama", "pull", "llama3.2:1b"])
-
-# Index data if needed
-if not os.path.exists("chroma_db"):
-    subprocess.run(["python", "tools/index_pdf.py"])
-
-# Start Streamlit
-subprocess.run(["streamlit", "run", "app.py", "--server.port=7860"])
-```
+**Key Point**: The architecture is identical to local development - we just containerized it!
 
 ## Data Flow in Cloud Environment
 
@@ -197,42 +225,54 @@ subprocess.run(["streamlit", "run", "app.py", "--server.port=7860"])
 sequenceDiagram
     participant User
     participant HF as Hugging Face
-    participant Container
-    participant Streamlit
-    participant Agent
+    participant Startup as huggingface_space.py
     participant Ollama
-    participant DB as ChromaDB
+    participant MCP as MCP Server
+    participant Streamlit
+    participant Agent as RAG Agent
 
-    Note over User,HF: Initial Access
+    Note over User,Startup: Container Startup
+    HF->>Startup: Launch container
+    Startup->>Ollama: Start Ollama server
+    Ollama->>Ollama: Pull llama3.2:1b model
+    Startup->>MCP: Start MCP server :8000
+    MCP->>MCP: Initialize ChromaDB
+    MCP->>MCP: Populate vector DB
+    Startup->>Streamlit: Start Streamlit :7860
+
+    Note over User,Agent: User Request
     User->>HF: HTTPS request
-    HF->>Container: Route to Space
-    Container->>Streamlit: Start if not running
-
-    Note over Streamlit,DB: Initialization
-    Streamlit->>Ollama: Start server
-    Streamlit->>DB: Load/create vector index
+    HF->>Streamlit: Route to app
     Streamlit->>User: Render UI
 
-    Note over User,DB: Query Processing
+    Note over User,Agent: Query Processing
     User->>Streamlit: Submit query
-    Streamlit->>Agent: Process (embedded)
-    Agent->>DB: RAG search (if weather)
-    Agent->>Ollama: LLM call (local)
-    Agent->>Agent: Data analysis (if data query)
-    Agent->>Streamlit: Response
-    Streamlit->>User: Display result
+    Streamlit->>Agent: process_query()
+    Agent->>MCP: classify_canonical_query()
+    MCP->>Agent: Suggested query
+    Agent->>MCP: get_query_template()
+    MCP->>Agent: Template
+    Agent->>MCP: get_filtered_office_data()
+    MCP->>Agent: Data
+    Agent->>Ollama: LLM inference
+    Ollama->>Agent: Response
+    Agent->>Streamlit: Result
+    Streamlit->>User: Display answer
 ```
 
 ## Key Modifications for Cloud Deployment
 
-### 1. Remove MCP Server Dependency
+### 1. Process Management
 ```python
-# Local (Lab 8):
-async with Client(MCP_ENDPOINT) as mcp:
-    result = await mcp.call_tool("analyze_offices", args)
+# Local (Lab 8): Manual process management
+# Terminal 1: python mcp_server_classification.py
+# Terminal 2: streamlit run streamlit_app.py
 
-# Cloud (Lab 9):
-result = analyze_offices_embedded(canonical_query, df)
+# Cloud (Lab 9): Automated process management
+# huggingface_space.py manages all three:
+manager.start_ollama()      # Background process
+manager.start_mcp_server()  # Background process
+manager.start_streamlit_app()  # Foreground process
 ```
 
 ### 2. Lightweight Model
@@ -240,31 +280,30 @@ result = analyze_offices_embedded(canonical_query, df)
 # Local: Can use larger models
 OLLAMA_MODEL = "llama3.2"  # 3B parameters
 
-# Cloud: Use smaller model
-OLLAMA_MODEL = "llama3.2:1b"  # 1B parameters - faster, less memory
+# Cloud: Use smaller model for faster startup
+OLLAMA_MODEL = "llama3.2:1b"  # 1B parameters
 ```
 
-### 3. Included Data Files
-```
-/app/
-  ├── app.py
-  ├── data/
-  │   └── offices.csv        # Included in deployment
-  ├── chroma_db/             # Pre-built or built on startup
-  └── requirements.txt
-```
-
-### 4. Environment Detection
+### 3. ChromaDB Path
 ```python
-def is_huggingface_space():
-    return os.environ.get("SPACE_ID") is not None
+# Local (Lab 8): Current directory
+CHROMA_PATH = Path("./mcp_chroma_db")
 
-if is_huggingface_space():
-    # Use embedded logic
-    use_mcp = False
-else:
-    # Try to connect to MCP server
-    use_mcp = check_mcp_available()
+# Cloud (Lab 9): Temp directory (writable in container)
+CHROMA_PATH = Path("/tmp/mcp_chroma_db")
+```
+
+### 4. Port Configuration
+```python
+# Local (Lab 8):
+# - Streamlit: 8501 (default)
+# - MCP Server: 8000
+# - Ollama: 11434 (default)
+
+# Cloud (Lab 9):
+# - Streamlit: 7860 (HF Spaces requirement)
+# - MCP Server: 8000 (same)
+# - Ollama: 11434 (same)
 ```
 
 ## Resource Optimization
@@ -323,32 +362,38 @@ flowchart TD
 
 ```
 huggingface-space/
-├── README.md                 # HF Space config
-├── Dockerfile               # Container definition
-├── requirements.txt         # Python dependencies
-├── app.py                   # Main Streamlit app (embedded logic)
-├── start_huggingface_space.py  # Startup script
+├── README.md                        # HF Space config (sdk: docker)
+├── Dockerfile                       # Container definition
+├── Dockerfile.hf                    # HF-specific Dockerfile
+├── requirements.txt                 # Python dependencies
+├── huggingface_space.py            # Process manager (starts all services)
+├── streamlit_app.py                # Streamlit UI (from Lab 8)
+├── rag_agent_classification.py     # RAG agent (from Lab 7)
+├── mcp_server_classification.py    # MCP server (from Lab 6)
 ├── data/
-│   └── offices.csv         # Office data
-├── tools/
-│   └── index_pdf.py        # Vector indexing
-└── docs/
-    └── offices.pdf         # Source document
+│   ├── offices.csv                 # Office analytics data
+│   └── offices.pdf                 # Office locations data
+└── scripts/
+    └── copyfiles.sh                # Deployment prep script
 ```
 
-## Requirements.txt Optimization
+**Key Point**: All the application code (streamlit_app.py, rag_agent_classification.py, mcp_server_classification.py) is identical to Labs 6-8. Only the startup/orchestration changes!
+
+## Requirements.txt
 
 ```txt
-# Minimal dependencies for cloud deployment
-streamlit==1.28.0
-pandas==2.0.3
-langchain-ollama==0.1.0
-chromadb==0.4.15
-sentence-transformers==2.2.2
-requests==2.31.0
+# Same dependencies as local development
+streamlit>=1.28.0
+pandas>=2.0.0
+langchain-ollama>=0.1.0
+fastmcp>=0.1.0              # Required for MCP server
+chromadb>=0.4.0
+sentence-transformers>=2.2.0
+pdfplumber>=0.10.0          # For PDF processing
+requests>=2.31.0
 
-# Note: Reduced from full local requirements
-# Removed: fastmcp (embedded logic instead)
+# Note: Identical to local requirements
+# Full MCP architecture deployed to cloud
 ```
 
 ## Monitoring and Logs
@@ -383,23 +428,29 @@ graph LR
 
 | Aspect | Lab 8 (Local) | Lab 9 (Cloud) |
 |--------|---------------|---------------|
-| Deployment | Local machine | Hugging Face Cloud |
-| MCP Server | Required (:8000) | Embedded in app |
-| Model | llama3.2 (3B) | llama3.2:1b (1B) |
-| Access | localhost:8501 | Public URL |
-| Persistence | Local disk | HF persistent storage |
-| Scalability | Single user | Multiple users |
-| Resources | Your hardware | HF allocated resources |
-| Cold Start | Instant | ~30 seconds |
+| **Deployment** | Local machine | Hugging Face Cloud (Docker) |
+| **Process Management** | Manual (multiple terminals) | Automated (huggingface_space.py) |
+| **MCP Server** | Manual start on :8000 | Auto-started in container |
+| **Ollama** | Manual start | Auto-started + model pulled |
+| **Model** | llama3.2 (3B) | llama3.2:1b (1B) |
+| **Streamlit Port** | 8501 (default) | 7860 (HF requirement) |
+| **ChromaDB Path** | ./mcp_chroma_db | /tmp/mcp_chroma_db |
+| **Architecture** | Same 3-tier (UI→Agent→MCP) | Same 3-tier (UI→Agent→MCP) |
+| **Access** | localhost:8501 | Public HTTPS URL |
+| **Persistence** | Local disk | Container ephemeral |
+| **Scalability** | Single user | Multiple concurrent users |
+| **Resources** | Your hardware | HF allocated resources |
+| **Cold Start** | Instant (if running) | ~60-90 seconds |
 
 ## Key Learning Points
-- **Cloud Deployment**: Moving from local to cloud
-- **Container Packaging**: Docker for reproducible environments
-- **Resource Optimization**: Smaller models, embedded logic
-- **Public Access**: Sharing apps with the world
-- **Serverless Considerations**: Cold starts, resource limits
-- **Embedded vs Distributed**: When to embed vs separate services
-- **Configuration Management**: Environment-specific settings
+- **Cloud Deployment**: Moving from local to cloud-based hosting
+- **Container Packaging**: Docker for reproducible multi-service environments
+- **Process Orchestration**: Managing multiple services in one container
+- **Resource Optimization**: Using smaller models (1B vs 3B) for faster startup
+- **Public Access**: Making AI apps shareable via HTTPS
+- **Path Configuration**: Adapting file paths for container environments
+- **Same Architecture**: Proof that good local architecture scales to cloud
+- **Automated Management**: Single startup script replaces manual terminal management
 
 ## Architecture Characteristics
 - **Type**: Cloud-hosted web application
