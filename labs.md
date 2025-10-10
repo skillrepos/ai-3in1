@@ -127,7 +127,7 @@ python warmup_models.py
 
 **Lab 2 - Creating a simple agent**
 
-**Purpose: In this lab, we’ll learn about the basics of agents and see how tools are called. We'll also see how Chain of Thought prompting works with LLMs and how we can have ReAct agents reason and act.**
+**Purpose: In this lab, we’ll learn about the basics of agents and take our first pass at creating one. We'll also see how Chain of Thought occurs with LLMs.**
 
 1. For this lab, we have the outline of an agent in a file called *agent.py* in that directory. You can take a look at the code either by clicking on [**agent.py**](./agent.py) or by entering the command below in the codespace's terminal.
    
