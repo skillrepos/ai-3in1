@@ -46,6 +46,12 @@ To do this, when logged in to GitHub, go to https://github.com/settings/codespac
 
 ---
 
-<p align="center">
-**For educational use only by the attendees of our workshops.**
-</p>
+## License and Use
+
+These materials are provided as part of the **AI for App Development Workshop** conducted by **TechUpSkills (Brent Laster)**.
+
+Use of this repository is permitted **only for registered workshop participants** for their own personal learning and
+practice. Redistribution, republication, or reuse of any part of these materials for teaching, commercial, or derivative
+purposes is not allowed without written permission.
+
+© 2025 TechUpSkills / Brent Laster. All rights reserved.
