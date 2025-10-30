@@ -38,11 +38,12 @@ ollama
 
 <br><br>
 
-4. Switch back to a terminal in your codespace. Run the first command to see what models are loaded (none currently). Then pull the model down with the second command. (This will take a few minutes.) 
+4. Switch back to a terminal in your codespace. Run the first command to see what models are loaded (none currently). Then pull the smaller model down with the second command. (This will take a few minutes.) After this, we will run the third command to *alias* the smaller model for the various code as *latest*.
 
 ```
 ollama list
-ollama pull llama3.2
+ollama pull llama3.2:1b
+ollama cp llama3.2:1b llama3.2:latest
 ```
 
 ![pulling the model](./images/31ai9.png?raw=true "pulling the model")
@@ -290,7 +291,7 @@ code tools/index_pdf.py
 
 <br><br>
 
-3. Let's create a vector database of our local python files. Run the program to index those as below. You'll see the program loading the embedding model that will turn the code chunks into numeric represenations in the vector database and then it will read and index our *.py files. **When you run the command below, there will be a very long pause while things get loaded.**
+3. Let's create a vector database of our local python files. Run the program to index those as below. You'll see the program loading the embedding model that will turn the code chunks into numeric represenations in the vector database and then it will read and index our *.py files. **When you run the command below, there may be a long pause while things get loaded.**
 
 ```
 python tools/index_code.py
