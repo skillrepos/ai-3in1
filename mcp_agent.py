@@ -55,26 +55,45 @@ def unwrap(obj):
     return obj
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# ║ 3.  LLM-based city extractor (unchanged)                         ║
+# ║ 3.  Simple regex-based city extractor (no LLM call)             ║
 # ╚══════════════════════════════════════════════════════════════════╝
-# Uses a separate LLM call to extract city names from natural language.
-# This handles inputs like "What's the weather in Paris?" → "Paris"
-extract_llm = ChatOllama(model="llama3.2", temperature=0.0)
+# Parses city names from natural language without requiring an LLM call.
+# Handles inputs like "What's the weather in Paris?" → "Paris"
 
 def extract_city(prompt: str) -> Optional[str]:
-    """Extract city name from natural language using LLM."""
-    ask = (
-        "Return ONLY the city name mentioned here (no country or state). "
-        "If none, reply exactly 'NONE'.\n\n"
-        + prompt
-    )
-    reply = extract_llm.invoke(ask).content.strip()
-    return None if reply.upper() == "NONE" else reply
+    """Extract city name from natural language using regex patterns."""
+    # Pattern 1: "in <City>", "at <City>", "for <City>"
+    patterns = [
+        r'\bin\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',  # "in New York"
+        r'\bat\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',  # "at San Francisco"
+        r'\bfor\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)', # "for Los Angeles"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, prompt)
+        if match:
+            return match.group(1)
+
+    # Pattern 2: Find capitalized words (fallback)
+    # Look for capitalized words that might be city names
+    capitalized = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', prompt)
+    if capitalized:
+        # Return the longest match (likely to be the full city name)
+        return max(capitalized, key=len)
+
+    # Pattern 3: If no capitalized words, assume entire input is city name
+    # This handles lowercase inputs like "paris" or "new york"
+    cleaned = re.sub(r'\b(what|is|the|weather|in|at|for|tell|me|about)\b', '',
+                     prompt, flags=re.IGNORECASE).strip()
+    if cleaned:
+        # Capitalize first letter of each word
+        return ' '.join(word.capitalize() for word in cleaned.split())
+
+    return None
 
 # ╔══════════════════════════════════════════════════════════════════╗
 # ║ 4.  Dynamic TAO loop with LLM-controlled tool selection          ║
 # ╚══════════════════════════════════════════════════════════════════╝
-    llm = ChatOllama(model="llama3.2", temperature=0.0)
 
     async with Client("http://127.0.0.1:8000/mcp/") as mcp:
         messages = [
@@ -82,10 +101,23 @@ def extract_city(prompt: str) -> Optional[str]:
             {"role": "user", "content": f"What is the current weather in {city}?"},
         ]
 
+        print("\n" + "="*60)
+        print("Dynamic TAO Agent - LLM Controls Tool Selection")
+        print("="*60 + "\n")
+
+        # Store context for final answer
+        context = {
+            "city": city,
+            "latitude": None,
+            "longitude": None,
+            "temperature_c": None,
+            "temperature_f": None,
+            "conditions": None,
+        }
 
         for step in range(1, max_steps + 1):
             print(f"[Step {step}]")
-            
+                        
 
             action = action_match.group(1).lower()
 
