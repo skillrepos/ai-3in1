@@ -142,7 +142,7 @@ async def geocode_via_mcp(name: str, mcp_client: Client) -> Optional[Tuple[float
     Returns:
         (latitude, longitude) tuple, or None if geocoding fails
     """
-    async def _lookup(n: str):
+    async def _lookup(n: str, silent: bool = False):
         try:
             geo_data = unwrap(result)
 
@@ -150,7 +150,8 @@ async def geocode_via_mcp(name: str, mcp_client: Client) -> Optional[Tuple[float
                 return None
 
             if "error" in geo_data:
-                print(f"Geocoding error: {geo_data['error']}")
+                if not silent:
+                    print(f"Geocoding error: {geo_data['error']}")
                 return None
 
             lat = geo_data.get("latitude")
@@ -160,15 +161,20 @@ async def geocode_via_mcp(name: str, mcp_client: Client) -> Optional[Tuple[float
                 return (lat, lon)
 
         except Exception as e:
-            print(f"Geocoding failed: {type(e).__name__}")
+            if not silent:
+                print(f"Geocoding failed: {type(e).__name__}")
 
         return None
 
-    coords = await _lookup(name)
+    # First attempt - silence errors if we plan to retry
+    coords = await _lookup(name, silent="," in name)
     if coords:
         return coords
-    if "," in name:                              # retry with simpler string
+
+    # Retry with just city name if first attempt failed
+    if "," in name:
         return await _lookup(name.split(",", 1)[0].strip())
+
     return None
 
 # ╔══════════════════════════════════════════════════════════════════╗
