@@ -436,7 +436,7 @@ Tell me about HQ
 Tell me about the Southern office
 ```
 
-![Running the updated RAG agent](./images/31ai31.png?raw=true "Running the updated RAG agent")
+![Running the updated RAG agent](./images/31ai34.png?raw=true "Running the updated RAG agent")
 
 <br><br>
 
