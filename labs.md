@@ -411,7 +411,7 @@ Tell me about the Southern office
 
 <br><br>
 
-8. While this works, it could be more informative and user-friendly. Let's change the prompt and directions to the LLM to have it add an additional fact about the city where the office is located and include that and the weather in a more user-friendly response. To see and make the changes you can do the usual diff and merge using the command below.
+8. While this works, it isn't taking advantage of a model (other than for embeddings) and could be more informative and user-friendly. Let's change things to have our standard model add an additional fact about the city where the office is located and include that and the weather in a more user-friendly response. To see and make the changes you can do the usual diff and merge using the command below.
 
 ```
 code -d labs/common/lab5_agent_solution_v2.txt rag_agent.py
