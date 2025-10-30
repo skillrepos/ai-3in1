@@ -228,7 +228,7 @@ code tools/discover_tools.py
 python tools/discover_tools.py
 ```
 
-![Discovering tools](./images/aiapps19.png?raw=true "Discovering tools") 
+![Discovering tools](./images/31ai33.png?raw=true "Discovering tools") 
 
 <br><br>
 
