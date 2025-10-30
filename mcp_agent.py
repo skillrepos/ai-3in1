@@ -180,4 +180,3 @@ if __name__ == "__main__":
         print(f"\n🔍 Detected city: {city}")
         asyncio.run(run_dynamic(city))
         print()
-
