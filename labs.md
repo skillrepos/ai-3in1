@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 3.0 - 10/30/25
+## Revision 3.1 - 10/30/25
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -101,6 +101,9 @@ You should see a simple script that:
 - Sends it to Ollama
 - Displays the response
 
+![simple ollama](./images/31ai36.png?raw=true "simple ollama")
+
+
 <br><br>
 
 10. Now you can run the script with the command below. 
@@ -112,6 +115,8 @@ python simple_ollama.py
 <br><br>
 
 11. When prompted, enter a question like "What is the capital of France?" and press Enter. You should see the model's response printed to the terminal. This demonstrates how easy it is to integrate Ollama into a Python application. Feel free to try other prompts. 
+
+![query](./images/31ai35.png?raw=true "query")
 
 
 <br><br>
