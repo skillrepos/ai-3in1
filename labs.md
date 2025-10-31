@@ -51,7 +51,7 @@ ollama cp llama3.2:1b llama3.2:latest
 
 <br><br>
 
-5. Once the model is downloaded, you can see it with the first command below. Then run the model with the second command below. This will load it and make it available to query/prompt. 
+5. Once the model is downloaded, you can see it (and its alias) with the first command below. Then run the model with the second command below. This will load it and make it available to query/prompt. 
 
 ```
 ollama list
