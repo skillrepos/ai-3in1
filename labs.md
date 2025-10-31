@@ -13,6 +13,7 @@
   python warmup_models.py
   ```
 
+<br><br><br>
 **Lab 1 - Using Ollama to run models locally**
 
 **Purpose: In this lab, we’ll start getting familiar with Ollama, a way to run models locally.**
