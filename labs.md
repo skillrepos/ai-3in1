@@ -18,6 +18,28 @@
 
 **Purpose: In this lab, we’ll start getting familiar with Ollama, a way to run models locally.**
 
+---
+
+**What the Ollama example does**
+- Starts a local Ollama server inside the Codespace so you can run models locally.
+- Pulls a small model (`llama3.2:1b`) and creates an alias (`llama3.2:latest`) used by the rest of the workshop.
+- Runs the model interactively (`ollama run`) and via HTTP (`/api/generate`) to show the two common access patterns.
+- Runs a simple Python script (`simple_ollama.py`) that calls Ollama programmatically using LangChain’s Ollama integration.
+
+**What it demonstrates**
+- The difference between:
+  - **Interactive CLI usage** (quick testing),
+  - **Direct HTTP API calls** (service-style integration),
+  - **Python integration** (application development).
+- Why “local model execution” matters for workshops and prototyping:
+  - consistent environment, no cloud account required, predictable tooling.
+- The importance of using a consistent model tag/alias (`llama3.2:latest`) so later labs behave consistently.
+
+---
+
+### Steps
+
+
 1. The Ollama app is already installed as part of the codespace setup via [**scripts/startOllama.sh**](./scripts/startOllama.sh). Start it running with the first command below. (If you need to restart it at some point, you can use the same command. To see the different options Ollama makes available for working with models, you can run the second command below in the *TERMINAL*. 
 
 ```
@@ -55,7 +77,7 @@ ollama cp llama3.2:1b llama3.2:latest
 
 ```
 ollama list
-ollama run llama3.2
+ollama run llama3.2:latest
 ```
 
 <br><br>
@@ -135,7 +157,23 @@ python warmup_models.py
 
 **Lab 2 - Creating a simple agent**
 
-**Purpose: In this lab, we’ll learn about the basics of agents and take our first pass at creating one. We'll also see how Chain of Thought occurs with LLMs.**
+**Purpose: In this lab, we’ll learn the basics of agents and create a simple one. We’ll observe the agent loop (plan → tool call → result) via the program’s logged steps and tool inputs/outputs.**
+
+---
+
+**What the agent example does**
+- Uses a local Ollama-served LLM (llama3.2) to interpret a weather request and decide when to call a tool.
+- Extracts a location (or coordinates) from the input and calls Open-Meteo to fetch current/forecast weather data.
+- Produces a short, user-friendly summary by iterating through an agent loop.
+
+**What it demonstrates**
+- How to integrate **LangChain + Ollama** to drive an agent workflow.
+- An observable agent trace: **plan → tool call → tool result → response** (including tool arguments and outputs).
+- Basic tool/function calling patterns and how tools ground the final answer in external data.
+
+---
+
+### Steps
 
 1. For this lab, we have the outline of an agent in a file called *agent.py* in the project's directory. You can take a look at the code either by clicking on [**agent.py**](./agent.py) or by entering the command below in the codespace's terminal.
    
@@ -159,8 +197,8 @@ code -d labs/common/lab2_agent_solution.txt agent.py
 
 <br><br>
 
-4. Once you have run the command, you'll have a side-by-side in your editor of the completed code and the agent1.py file.
-  You can merge each section of code into the agent1.py file by hovering over the middle bar and clicking on the arrows pointing right. Go through each section, look at the code, and then click to merge the changes in, one at a time.
+4. Once you have run the command, you'll have a side-by-side in your editor of the completed code and the **agent.py** file.
+  You can merge each section of code into **agent.py** by hovering over the middle bar and clicking on the arrows pointing right. Go through each section, look at the code, and then click to merge the changes in, one at a time.
 
 ![Side-by-side merge](./images/31ai13.png?raw=true "Side-by-side merge") 
 
@@ -190,6 +228,11 @@ python agent.py
 
 8. You can then input another location and run the agent again or exit. Note that if you get a timeout error, the API may be limiting the number of accesses in a short period of time. You can usually just try again and it will work.
 
+9. Try putting in *Sydney, Australia* and then check the output against the weather forecast on the web. Why do you think it doesn't match? How would you fix it?
+
+Here's a clue: "If latitude/longitude is in the Southern or Western hemisphere, use negative values as appropriate"
+
+
 <p align="center">
 **[END OF LAB]**
 </p>
@@ -199,6 +242,22 @@ python agent.py
 **Lab 3 - Exploring MCP**
 
 **Purpose: In this lab, we'll see how MCP can be used to standardize an agent's interaction with tools.**
+
+---
+
+**What the MCP example does**
+- Implements an **MCP server** using `FastMCP` that exposes weather-related tools.
+- Connects an **MCP client agent** that uses an LLM to decide which MCP tools to invoke.
+- Handles retries/timeouts and demonstrates robustness when tool calls fail.
+
+**What it demonstrates**
+- How **FastMCP** standardizes tool interfaces via JSON-RPC with minimal boilerplate.
+- Clean separation between **tool hosting (server)** and **agent orchestration (client + LLM)**.
+- Protocol-first design: capability listing, structured tool schemas, and transport configuration (stdio vs streamable HTTP).
+
+---
+
+### Steps
 
 1. We have partial implementations of an MCP server and an agent that uses an MCP client to connect to tools on the server. So that you can get acquainted with the main parts of each, we'll build them out as we did the agent in the second lab - by viewing differences and merging. Let's start with the server. Run the command below to see the differences.
 
@@ -210,7 +269,7 @@ code -d labs/common/lab3_server_solution.txt mcp_server.py
 
 <br><br>
 
-2. As you look at the differences, note that we are using FastMCP to more easily set up a server, with its *@mcp.tool* decorators to designate our functions as MCP tools. Also, we run this using the *streamable-http* transport protocol. Review each difference to see what is being done, then use the arrows to merge. When finished, click the "x"" in the tab at the top to close and save the files.
+2. As you look at the differences, note that we are using FastMCP to more easily set up a server, with its *@mcp.tool* decorators to designate our functions as MCP tools. Also, we run this using the *streamable-http* transport protocol. Review each difference to see what is being done, then use the arrows to merge. When finished, click the "X" in the tab at the top to close and save the files.
 
 <br><br>
 
@@ -230,7 +289,8 @@ python mcp_server.py
 
 <br><br>
 
-5. We also have a small tool that can call the MCP *discover* method to find the list of tools from our server. This is just for demo purposes. You can take a look at the code either by clicking on [**tools/discover_tools.py**](./tools/discover_tools.py) or by entering the first command below in the codespace's terminal. The actual code here is minimal. It connects to our server and invokes the list_tools method. Run it with the second command below and you should see the list of tools like in the screenshot.
+5. We also have a small helper script that connects to the MCP server and **lists the available tools** (for demo purposes).
+  Take a look at the code in `tools/discover_tools.py`, then run it to print the server’s tool list:
 
 ```
 code tools/discover_tools.py
@@ -249,7 +309,7 @@ code -d labs/common/lab3_agent_solution_dynamic.txt mcp_agent.py
 
 <br><br>
 
-7. Review and merge the changes as before. What we're highlighting in this step are the *System Prompt* that drives the LLM used by the agent, the connection with the MCP client at the /mcp/ endpoint, and the mpc calls to the tools on the server. When finished, close the tab to save the changes as before.
+7. Review and merge the changes as before. What we're highlighting in this step are the *System Prompt* that drives the LLM used by the agent, the connection with the MCP client at the /mcp/ endpoint, and the **MCP** calls the client makes to invoke tools on the server. When finished, close the tab to save the changes as before.
 
 ![Agent using MCP client code](./images/aiapps39.png?raw=true "Agent using MCP client code") 
 
@@ -283,6 +343,27 @@ What is the weather in New York?
 **Lab 4 - Working with Vector Databases**
 
 **Purpose: In this lab, we’ll learn about how to use vector databases for storing supporting data and doing similarity searches.**
+
+---
+
+**What the vector database example does**
+- Builds a local vector index using ChromaDB for:
+  - the repository’s Python files (code indexing), and
+  - a PDF document (`data/offices.pdf`) containing office information.
+- Uses an embedding model to convert chunks of text into vectors.
+- Runs a search tool that retrieves the top matching chunks using similarity scoring.
+
+**What it demonstrates**
+- **Retrieval-only semantic search**:
+  - embeddings + vector similarity return relevant chunks,
+  - but do **not** generate a natural-language answer by themselves.
+- Why chunking + embeddings enable “meaning-based” search beyond keywords.
+- How the same retrieval approach applies to different sources (code vs PDF).
+- How similarity scores help you compare results and judge confidence before you generate an answer (Lab 5).
+
+---
+
+### Steps
 
 1. For this lab and the next one, we have a data file that we'll be usihg that contains a list of office information and details for a ficticious company. The file is in [**data/offices.pdf**](./data/offices.pdf). You can use the link to open it and take a look at it.
 
@@ -358,7 +439,7 @@ High revenue branch
 
 <br><br>
 
-8. Keep in mind that this is not trying to intelligently answer your prompts at this point. This is a simple semantic search to find related chunks. In lab 5, we'll add in the LLM to give us better responses. In preparation for that lab, make sure that indexing for the PDF is the last one you ran and not the indexing for the Python files.
+8. Keep in mind this is **retrieval only**: it uses an **embedding model** to find similar chunks, but it does **not** use a generative model to compose a natural-language answer. In Lab 5, we’ll add a generative step to produce a more user-friendly response grounded in retrieved content.
 
 <p align="center">
 **[END OF LAB]**
@@ -369,6 +450,29 @@ High revenue branch
 **Lab 5 - Using RAG with Agents**
 
 **Purpose: In this lab, we’ll explore how agents can leverage external data stores via RAG and tie in our previous tool use.**
+
+---
+
+**What the RAG + agent example does**
+- Uses retrieval (from the Lab 4 vector index of `offices.pdf`) to find office details relevant to a user query.
+- Extracts a location from the retrieved office data and gets coordinates for it.
+- Uses an agent workflow to call weather tooling (via the MCP server from Lab 3) for the office location.
+- Produces a combined response: office info grounded in retrieved content + live weather from tools.
+
+**What it demonstrates**
+- A complete “AI 3-in-1” workflow:
+  - **Local model** (LLM via Ollama),
+  - **RAG retrieval** (ChromaDB over the PDF),
+  - **Agent tool use** (MCP server tools for weather).
+- The separation of responsibilities:
+  - vector DB retrieval provides grounded context,
+  - tools provide live/authoritative external data,
+  - the LLM composes a user-friendly response.
+- How “version 2” improves usability by adding a generative step to format and enrich the final answer while staying grounded in retrieved content and tool output.
+
+---
+
+### Steps
 
 1. For this lab, we're going to combine our previous agent that looks up weather with RAG to get information about offices based on a prompt and tell us what the weather is like for that locaion.
 
@@ -460,5 +564,6 @@ Tell me about the Southern office
 </p>
 
 <p align="center">
-**(c) 2025 Tech Skills Transformations and Brent C. Laster. All rights reserved.**
+**(c) 2026 Tech Skills Transformations and Brent C. Laster. All rights reserved.**
 </p>
+

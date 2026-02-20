@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Lab 3: FastMCP Weather Server
+Lab 2: FastMCP Weather Server
 ────────────────────────────────────────────────────────────────────────
 A robust FastMCP server that provides weather and geocoding services via HTTP.
 
