@@ -1,43 +1,13 @@
-#!/usr/bin/env python3
-"""
-────────────────────────────────────────────────────────────────────────
-A **tiny demonstration** of the classic Thought-Action-Observation (TAO)
-loop using:
+# weather-agent with TAO – AI-driven tool selection + interactive loop + full tracing
 
-* **Open-Meteo** – free REST weather API
-* **LangChain + Ollama** – local Llama-3.2 language model
-* **Two “tools”** defined in pure Python 
-
-The agent:
-
-  1. Receives a natural-language question such as  
-     “What is the predicted weather today for Paris?”
-  2. Thinks (“Thought: …”) and selects a tool (“Action: get_weather …”).
-  3. We (the host program) call the Python function, show the *Observation*,
-     and feed that back to the LLM.
-  4. The LLM decides to convert °C → °F, we run that tool, feed the result
-     back, and finally print a concise forecast.
-
-Run the script, type a city, watch the full trace, and get the answer.
-"""
-
-# ───────────────────────── standard library ─────────────────────────
 import json
+import requests
 import textwrap
-
-from typing import Dict
-
-import requests                           # simple HTTP client
-
-# ───────────────────────── 3rd-party libraries ──────────────────────
-# *langchain-ollama* publishes a drop-in wrapper so we can call the
-# local Ollama server like any other LangChain LLM.
+import time
 from langchain_ollama import ChatOllama
 
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║ 1.  Static lookup: WMO weather-code → friendly description       ║
-# ╚══════════════════════════════════════════════════════════════════╝
-WEATHER_CODES: Dict[int, str] = {
+# ── 1. Open-Meteo weather-code lookup ──────────────────────────────────────
+WEATHER_CODES = {
     0:  "Clear sky",                     1:  "Mainly clear",
     2:  "Partly cloudy",                 3:  "Overcast",
     45: "Fog",                           48: "Depositing rime fog",
@@ -54,60 +24,82 @@ WEATHER_CODES: Dict[int, str] = {
     96: "Thunderstorm with slight hail", 99: "Thunderstorm with heavy hail",
 }
 
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║ 2.  “Tool” functions (simple Python, no server needed)           ║
-# ╚══════════════════════════════════════════════════════════════════╝
+# ── 2. Tools ───────────────────────────────────────────────────────────────
 def get_weather(lat: float, lon: float) -> dict:
 
 
-def convert_c_to_f(c: float) -> float:
+    # Retry up to 3 times
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
 
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║ 3.  Local LLM wrapper (LangChain + Ollama)                       ║
-# ╚══════════════════════════════════════════════════════════════════╝)
+        except (requests.Timeout, requests.ConnectionError) as e:
+            if attempt == max_retries - 1:
+                raise  # Re-raise on final attempt
+            print(f"  ⚠️  Retry {attempt + 1}/{max_retries - 1} after timeout...")
+            time.sleep(2)  # Wait 2 seconds before retrying
 
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║ 4.  “System” prompt that defines the tools and the TAO protocol  ║
-# ╚══════════════════════════════════════════════════════════════════╝
+# ── 3. Tool registry ────────────────────────────────────────────────────────
 
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║ 5.  Helper that runs a single TAO episode and prints the trace   ║
-# ╚══════════════════════════════════════════════════════════════════╝
+
+# ── 4. LLM client ───────────────────────────────────────────────────────────
+
+
+# ── 5. System prompt ────────────────────────────────────────────────────────
+SYSTEM = textwrap.dedent("""
+
+""").strip()
+
+# ── 6. TAO run helper ───────────────────────────────────────────────────────
 def run(question: str) -> str:
-    """
-    Execute *one* two-step TAO loop:
+   
 
-        1. Ask Llama-3 to choose coordinates and call get_weather().
-        2. Feed back the observation, ask it whether to convert; if so,
-           call convert_c_to_f() for both temps.
-        3. Print the entire trace (Thought / Action / Observation) and
-           return the final sentence so the caller could display it.
-    """
-    # Initial conversation history
+    print("\n--- Thought → Action → Observation loop ---\n")
 
+    max_iterations = 5  # Safety limit
+    for i in range(max_iterations):
+ 
 
-    # ── First planning step: choose coordinates ────────────────────
+        # Check if AI is done
+        if "Final:" in response:
+            # Extract and return the final answer
+            final = response.split("Final:")[1].strip()
+            return final
 
-    # Extract JSON args from the “Args: …” line
-    coords = json.loads(plan1.split("Args:")[1].strip())
+        # Parse and execute the tool call
+        if "Action:" in response and "Args:" in response:
+            try:
+                # Extract action and args
+ 
+                # Get the tool function
 
-    # Call the first tool and show observation
+                if tool_func is None:
+                    print(f"⚠️  Unknown tool: '{tool_name}'\n")
+                    print(f"Available tools: {list(TOOLS.keys())}\n")
+                    break
 
-    # ── Second planning step: decide whether to convert units ──────
+                # Parse arguments and call the tool
 
-    # In this toy protocol the second tool call is always °C→°F
+                print(f"Observation: {observation}\n")
 
-    # ── Compose the final human-readable answer ────────────────────
-    final = (
-        f"Today will be **{obs1['conditions']}** with a high of "
-        f"**{high_f:.1f} °F** and a low of **{low_f:.1f} °F**."
-    )
-    print(f"Final: {final}\n")
-    return final
+                # Add to conversation history
 
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║ 6.  Simple REPL so you can type locations interactively          ║
-# ╚══════════════════════════════════════════════════════════════════╝
+            except json.JSONDecodeError as e:
+                print(f"⚠️  Failed to parse Args as JSON: {e}\n")
+                print(f"Args text was: {args_text}\n")
+                break
+            except Exception as e:
+                print(f"⚠️  Error executing tool: {e}\n")
+                break
+        else:
+            print("⚠️  AI response missing Action/Args format\n")
+            print(f"Expected format:\nThought: ...\nAction: <tool_name>\nArgs: <json>\n")
+            print(f"Got:\n{response[:200]}...\n")
+            break
+
+    return "Sorry, I couldn't complete the task."
+
+# ── 7. Interactive loop ────────────────────────────────────────────────────
 if __name__ == "__main__":
     print("Weather-forecast agent (type 'exit' to quit)\n")
     while True:
@@ -116,13 +108,11 @@ if __name__ == "__main__":
             print("Goodbye!")
             break
 
-        # Build a user prompt that asks the agent for a forecast in °F
-        query = (
-            f"What is the predicted weather today for {loc}? "
-            "Include conditions plus high/low in °F."
-        )
+        # Build the question for the agent
+        query = f"What is the predicted weather today for {loc}?"
 
         try:
-            run(query)              # full TAO trace is printed inside run()
+            answer = run(query)
+            print(f"\n✓ {answer}\n")
         except Exception as e:
             print(f"⚠️  Error: {e}\n")
