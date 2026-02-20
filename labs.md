@@ -18,6 +18,9 @@
 
 **Purpose: In this lab, we’ll start getting familiar with Ollama, a way to run models locally.**
 
+### Steps
+
+
 1. The Ollama app is already installed as part of the codespace setup via [**scripts/startOllama.sh**](./scripts/startOllama.sh). Start it running with the first command below. (If you need to restart it at some point, you can use the same command. To see the different options Ollama makes available for working with models, you can run the second command below in the *TERMINAL*. 
 
 ```
@@ -137,6 +140,22 @@ python warmup_models.py
 
 **Purpose: In this lab, we’ll learn the basics of agents and create a simple one. We’ll observe the agent loop (plan → tool call → result) via the program’s logged steps and tool inputs/outputs.**
 
+---
+
+**What the agent example does**
+- Uses a local Ollama-served LLM (llama3.2) to decide to call a tool and interpret natural language queries about weather.
+- Extracts coordinates from the input, queries Open-Meteo for weather data.
+- Provides a summary forecast using a TAO loop.
+
+**What it demonstrates about the framework**
+- Shows how to integrate **LangChain + Ollama** to drive LLM reasoning.
+- Demonstrates **Chain of Thought** reasoning with `Thought → Action → Observation` steps.
+- Introduces simple function/tool calling using an LLM.
+
+--- 
+
+### Steps
+
 1. For this lab, we have the outline of an agent in a file called *agent.py* in that directory. You can take a look at the code either by clicking on [**agent.py**](./agent.py) or by entering the command below in the codespace's terminal.
    
 ```
@@ -190,6 +209,11 @@ python agent.py
 
 8. You can then input another location and run the agent again or exit. Note that if you get a timeout error, the API may be limiting the number of accesses in a short period of time. You can usually just try again and it will work.
 
+9. Try putting in *Sydney, Australia* and then check the output against the weather forecast on the web. Why do you think it doesn't match? How would you fix it?
+
+Here's a clue: "If latitude/longitude is in the Southern or Western hemisphere, use negative values as appropriate"
+
+
 <p align="center">
 **[END OF LAB]**
 </p>
@@ -199,6 +223,22 @@ python agent.py
 **Lab 3 - Exploring MCP**
 
 **Purpose: In this lab, we'll see how MCP can be used to standardize an agent's interaction with tools.**
+
+---
+
+**What the MCP example does**
+- Implements an **MCP server** using `FastMCP` that exposes weather-related tools.
+- Connects an **MCP client agent** that uses an LLM to decide which MCP tools to invoke.
+- Handles retries and demonstrates robustness when tool calls fail.
+
+**What it demonstrates about the framework**
+- Shows how **FastMCP** standardizes tool interfaces via JSON-RPC with minimal boilerplate.
+- Provides clean separation between **tool hosting (server)** and **LLM reasoning (client)**.
+- Highlights protocol-first thinking and error-handling in agent execution.
+
+--- 
+
+### Steps
 
 1. We have partial implementations of an MCP server and an agent that uses an MCP client to connect to tools on the server. So that you can get acquainted with the main parts of each, we'll build them out as we did the agent in the second lab - by viewing differences and merging. Let's start with the server. Run the command below to see the differences.
 
