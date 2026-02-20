@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 3.1 - 10/30/25
+## Revision 3.2 - 02/18/26
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -135,7 +135,9 @@ python warmup_models.py
 
 **Lab 2 - Creating a simple agent**
 
-**Purpose: In this lab, we’ll learn about the basics of agents and take our first pass at creating one. We'll also see how Chain of Thought occurs with LLMs.**
+**Purpose: In this lab, we’ll learn about the basics of agents and take our first pass at creating one. We'll also see how
+
+**Note:** In real systems you should not rely on hidden internal reasoning. In this lab we print a simple Plan/Act/Observe trace so you can see what the agent is doing. the Plan/Act/Observe loop occurs with agent-style prompting.**
 
 1. For this lab, we have the outline of an agent in a file called *agent.py* in that directory. You can take a look at the code either by clicking on [**agent.py**](./agent.py) or by entering the command below in the codespace's terminal.
    
@@ -159,8 +161,8 @@ code -d labs/common/lab2_agent_solution.txt agent.py
 
 <br><br>
 
-4. Once you have run the command, you'll have a side-by-side in your editor of the completed code and the agent1.py file.
-  You can merge each section of code into the agent1.py file by hovering over the middle bar and clicking on the arrows pointing right. Go through each section, look at the code, and then click to merge the changes in, one at a time.
+4. Once you have run the command, you'll have a side-by-side in your editor of the completed code and the agent.py file.
+  You can merge each section of code into the agent.py file by hovering over the middle bar and clicking on the arrows pointing right. Go through each section, look at the code, and then click to merge the changes in, one at a time.
 
 ![Side-by-side merge](./images/31ai13.png?raw=true "Side-by-side merge") 
 
@@ -210,7 +212,7 @@ code -d labs/common/lab3_server_solution.txt mcp_server.py
 
 <br><br>
 
-2. As you look at the differences, note that we are using FastMCP to more easily set up a server, with its *@mcp.tool* decorators to designate our functions as MCP tools. Also, we run this using the *streamable-http* transport protocol. Review each difference to see what is being done, then use the arrows to merge. When finished, click the "x"" in the tab at the top to close and save the files.
+2. As you look at the differences, note that we are using FastMCP to more easily set up a server, with its *@mcp.tool* decorators to designate our functions as MCP tools. Also, we run this using the *streamable-http* transport protocol. Review each difference to see what is being done, then use the arrows to merge. When finished, click the "X" in the tab at the top to close and save the file.
 
 <br><br>
 
@@ -249,7 +251,7 @@ code -d labs/common/lab3_agent_solution_dynamic.txt mcp_agent.py
 
 <br><br>
 
-7. Review and merge the changes as before. What we're highlighting in this step are the *System Prompt* that drives the LLM used by the agent, the connection with the MCP client at the /mcp/ endpoint, and the mpc calls to the tools on the server. When finished, close the tab to save the changes as before.
+7. Review and merge the changes as before. What we're highlighting in this step are the *System Prompt* that drives the LLM used by the agent, the connection with the MCP client at the /mcp/ endpoint, and the MCP calls to the tools on the server. When finished, close the tab to save the changes as before.
 
 ![Agent using MCP client code](./images/aiapps39.png?raw=true "Agent using MCP client code") 
 
@@ -284,7 +286,7 @@ What is the weather in New York?
 
 **Purpose: In this lab, we’ll learn about how to use vector databases for storing supporting data and doing similarity searches.**
 
-1. For this lab and the next one, we have a data file that we'll be usihg that contains a list of office information and details for a ficticious company. The file is in [**data/offices.pdf**](./data/offices.pdf). You can use the link to open it and take a look at it.
+1. For this lab and the next one, we have a data file that we'll be using that contains a list of office information and details for a fictitious company. The file is in [**data/offices.pdf**](./data/offices.pdf). You can use the link to open it and take a look at it.
 
 ![PDF data file](./images/31ai23.png?raw=true "PDF data file") 
 
@@ -299,7 +301,7 @@ code tools/index_pdf.py
 
 <br><br>
 
-3. Let's create a vector database of our local python files. Run the program to index those as below. You'll see the program loading the embedding model that will turn the code chunks into numeric represenations in the vector database and then it will read and index our *.py files. **When you run the command below, there may be a long pause while things get loaded.**
+3. Let's create a vector database of our local python files. Run the program to index those as below. You'll see the program loading the embedding model that will turn the code chunks into numeric representations in the vector database and then it will read and index our *.py files. **When you run the command below, there may be a long pause while things get loaded.**
 
 ```
 python tools/index_code.py
@@ -322,7 +324,7 @@ code tools/search.py
 ```
 python tools/search.py
 
-convert celsius to farenheit
+convert celsius to fahrenheit
 fastmcp tools
 embed model sentence-transformers
 async with Client mcp
@@ -370,7 +372,7 @@ High revenue branch
 
 **Purpose: In this lab, we’ll explore how agents can leverage external data stores via RAG and tie in our previous tool use.**
 
-1. For this lab, we're going to combine our previous agent that looks up weather with RAG to get information about offices based on a prompt and tell us what the weather is like for that locaion.
+1. For this lab, we're going to combine our previous agent that looks up weather with RAG to get information about offices based on a prompt and tell us what the weather is like for that location.
 
 <br><br>
 
@@ -460,5 +462,6 @@ Tell me about the Southern office
 </p>
 
 <p align="center">
-**(c) 2025 Tech Skills Transformations and Brent C. Laster. All rights reserved.**
+**(c) 2026 Tech Skills Transformations and Brent C. Laster. All rights reserved.**
 </p>
+
