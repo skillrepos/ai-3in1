@@ -45,7 +45,7 @@
 ```
 ollama serve &
 <Hit Enter>
-ollama
+ollama --help
 ```
 
 <br><br>
@@ -57,16 +57,15 @@ ollama
 <br><br>
 
 3. This will put you on the specific page about that model. Scroll down and scan the various information available about this model.
-![reading about llama3.2](./images/31ai8.png?raw=true "reading about llama3.2")
+![reading about llama3.2](./images/31ai37.png?raw=true "reading about llama3.2")
 
 <br><br>
 
-4. Switch back to a terminal in your codespace. Run the first command to see what models are loaded (none currently). Then pull the smaller model down with the second command. (This will take a few minutes.) After this, we will run the third command to *alias* the smaller model for the various code as *latest*.
+4. Switch back to a terminal in your codespace. Run the first command to see what models are loaded (none currently). Then pull the latest (3b parameters) model down with the second command. (This will take a few minutes.)
 
 ```
 ollama list
-ollama pull llama3.2:1b
-ollama cp llama3.2:1b llama3.2:latest
+ollama pull llama3.2
 ```
 
 ![pulling the model](./images/31ai9.png?raw=true "pulling the model")
@@ -181,7 +180,7 @@ python warmup_models.py
 code agent.py
 ```
 
-![starting agent code](./images/31ai32.png?raw=true "Starting agent code")
+![starting agent code](./images/31ai38.png?raw=true "Starting agent code")
 
 <br><br>
 
@@ -200,13 +199,13 @@ code -d labs/common/lab2_agent_solution.txt agent.py
 4. Once you have run the command, you'll have a side-by-side in your editor of the completed code and the **agent.py** file.
   You can merge each section of code into **agent.py** by hovering over the middle bar and clicking on the arrows pointing right. Go through each section, look at the code, and then click to merge the changes in, one at a time.
 
-![Side-by-side merge](./images/31ai13.png?raw=true "Side-by-side merge") 
+![Side-by-side merge](./images/31ai39.png?raw=true "Side-by-side merge") 
 
 <br><br>
 
 5. When you have finished merging all the sections in, the files should show no differences. Save the changes simply by clicking on the "X" in the tab name.
 
-![Merge complete](./images/31ai14.png?raw=true "Merge complete") 
+![Merge complete](./images/31ai40.png?raw=true "Merge complete") 
 
 <br><br>
 
@@ -216,17 +215,19 @@ code -d labs/common/lab2_agent_solution.txt agent.py
 python agent.py
 ```
 
-![Running the agent](./images/31ai15.png?raw=true "Running the agent")
+![Running the agent](./images/31ai41.png?raw=true "Running the agent")
 
 <br><br>
 
 7. The agent will start running and will prompt for a location (or "exit" to finish). At the prompt, you can type in a location like "Paris, France" or "London" or "Raleigh" and hit *Enter*. You may see activity while the model is loaded. After that you'll be able to see the Thought -> Action -> Observation loop in practice as each one is listed out. You'll also see the arguments being passed to the tools as they are called. Finally you should see a human-friendly message summarizing the weather forecast.
 
-![Agent run](./images/31ai16.png?raw=true "Agent run") 
+![Agent run](./images/31ai42.png?raw=true "Agent run") 
 
 <br><br>
 
-8. You can then input another location and run the agent again or exit. Note that if you get a timeout error, the API may be limiting the number of accesses in a short period of time. You can usually just try again and it will work.
+8. You can then input another location and run the agent again or exit. Note that if you get a timeout error, the API may be limiting the number of accesses in a short period of time - it should retry on its own and return a result.
+
+<br><br>
 
 9. Try putting in *Sydney, Australia* and then check the output against the weather forecast on the web. Why do you think it doesn't match? How would you fix it?
 
