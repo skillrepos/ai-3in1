@@ -266,7 +266,7 @@ Here's a clue: "If latitude/longitude is in the Southern or Western hemisphere, 
 code -d labs/common/lab3_server_solution.txt mcp_server.py
 ```
 
-![MCP server code](./images/aiapps18.png?raw=true "MCP server code") 
+![MCP server code](./images/31ai44.png?raw=true "MCP server code") 
 
 <br><br>
 
@@ -312,7 +312,7 @@ code -d labs/common/lab3_agent_solution_dynamic.txt mcp_agent.py
 
 7. Review and merge the changes as before. What we're highlighting in this step are the *System Prompt* that drives the LLM used by the agent, the connection with the MCP client at the /mcp/ endpoint, and the **MCP** calls the client makes to invoke tools on the server. When finished, close the tab to save the changes as before.
 
-![Agent using MCP client code](./images/aiapps39.png?raw=true "Agent using MCP client code") 
+![Agent using MCP client code](./images/31ai43.png?raw=true "Agent using MCP client code") 
 
 <br><br>
    
@@ -334,7 +334,14 @@ What is the weather in New York?
 
 <br><br>
 
-10. When you're done, you can use 'exit' to stop the client and CTRL-C to stop the server. 
+
+10. Because we're using a tool to do the geolocation (get latitude and longitude), you can also put in locations like Sydney, Australia and get accurate results.
+
+![Agent using MCP client running](./images/31ai45.png?raw=true "Agent using MCP client running") 
+
+<br><br>
+
+11.  When you're done, you can use 'exit' to stop the client and CTRL-C to stop the server. 
 
 <p align="center">
 **[END OF LAB]**
