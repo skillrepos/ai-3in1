@@ -18,6 +18,25 @@
 
 **Purpose: In this lab, we’ll start getting familiar with Ollama, a way to run models locally.**
 
+---
+
+**What the Ollama example does**
+- Starts a local Ollama server inside the Codespace so you can run models locally.
+- Pulls a small model (`llama3.2:1b`) and creates an alias (`llama3.2:latest`) used by the rest of the workshop.
+- Runs the model interactively (`ollama run`) and via HTTP (`/api/generate`) to show the two common access patterns.
+- Runs a simple Python script (`simple_ollama.py`) that calls Ollama programmatically using LangChain’s Ollama integration.
+
+**What it demonstrates**
+- The difference between:
+  - **Interactive CLI usage** (quick testing),
+  - **Direct HTTP API calls** (service-style integration),
+  - **Python integration** (application development).
+- Why “local model execution” matters for workshops and prototyping:
+  - consistent environment, no cloud account required, predictable tooling.
+- The importance of using a consistent model tag/alias (`llama3.2:latest`) so later labs behave consistently.
+
+---
+
 ### Steps
 
 
@@ -143,16 +162,16 @@ python warmup_models.py
 ---
 
 **What the agent example does**
-- Uses a local Ollama-served LLM (llama3.2) to decide to call a tool and interpret natural language queries about weather.
-- Extracts coordinates from the input, queries Open-Meteo for weather data.
-- Provides a summary forecast using a TAO loop.
+- Uses a local Ollama-served LLM (llama3.2) to interpret a weather request and decide when to call a tool.
+- Extracts a location (or coordinates) from the input and calls Open-Meteo to fetch current/forecast weather data.
+- Produces a short, user-friendly summary by iterating through an agent loop.
 
-**What it demonstrates about the framework**
-- Shows how to integrate **LangChain + Ollama** to drive LLM reasoning.
-- Demonstrates **Chain of Thought** reasoning with `Thought → Action → Observation` steps.
-- Introduces simple function/tool calling using an LLM.
+**What it demonstrates**
+- How to integrate **LangChain + Ollama** to drive an agent workflow.
+- An observable agent trace: **plan → tool call → tool result → response** (including tool arguments and outputs).
+- Basic tool/function calling patterns and how tools ground the final answer in external data.
 
---- 
+---
 
 ### Steps
 
@@ -229,14 +248,14 @@ Here's a clue: "If latitude/longitude is in the Southern or Western hemisphere, 
 **What the MCP example does**
 - Implements an **MCP server** using `FastMCP` that exposes weather-related tools.
 - Connects an **MCP client agent** that uses an LLM to decide which MCP tools to invoke.
-- Handles retries and demonstrates robustness when tool calls fail.
+- Handles retries/timeouts and demonstrates robustness when tool calls fail.
 
-**What it demonstrates about the framework**
-- Shows how **FastMCP** standardizes tool interfaces via JSON-RPC with minimal boilerplate.
-- Provides clean separation between **tool hosting (server)** and **LLM reasoning (client)**.
-- Highlights protocol-first thinking and error-handling in agent execution.
+**What it demonstrates**
+- How **FastMCP** standardizes tool interfaces via JSON-RPC with minimal boilerplate.
+- Clean separation between **tool hosting (server)** and **agent orchestration (client + LLM)**.
+- Protocol-first design: capability listing, structured tool schemas, and transport configuration (stdio vs streamable HTTP).
 
---- 
+---
 
 ### Steps
 
@@ -325,6 +344,27 @@ What is the weather in New York?
 
 **Purpose: In this lab, we’ll learn about how to use vector databases for storing supporting data and doing similarity searches.**
 
+---
+
+**What the vector database example does**
+- Builds a local vector index using ChromaDB for:
+  - the repository’s Python files (code indexing), and
+  - a PDF document (`data/offices.pdf`) containing office information.
+- Uses an embedding model to convert chunks of text into vectors.
+- Runs a search tool that retrieves the top matching chunks using similarity scoring.
+
+**What it demonstrates**
+- **Retrieval-only semantic search**:
+  - embeddings + vector similarity return relevant chunks,
+  - but do **not** generate a natural-language answer by themselves.
+- Why chunking + embeddings enable “meaning-based” search beyond keywords.
+- How the same retrieval approach applies to different sources (code vs PDF).
+- How similarity scores help you compare results and judge confidence before you generate an answer (Lab 5).
+
+---
+
+### Steps
+
 1. For this lab and the next one, we have a data file that we'll be usihg that contains a list of office information and details for a ficticious company. The file is in [**data/offices.pdf**](./data/offices.pdf). You can use the link to open it and take a look at it.
 
 ![PDF data file](./images/31ai23.png?raw=true "PDF data file") 
@@ -410,6 +450,29 @@ High revenue branch
 **Lab 5 - Using RAG with Agents**
 
 **Purpose: In this lab, we’ll explore how agents can leverage external data stores via RAG and tie in our previous tool use.**
+
+---
+
+**What the RAG + agent example does**
+- Uses retrieval (from the Lab 4 vector index of `offices.pdf`) to find office details relevant to a user query.
+- Extracts a location from the retrieved office data and gets coordinates for it.
+- Uses an agent workflow to call weather tooling (via the MCP server from Lab 3) for the office location.
+- Produces a combined response: office info grounded in retrieved content + live weather from tools.
+
+**What it demonstrates**
+- A complete “AI 3-in-1” workflow:
+  - **Local model** (LLM via Ollama),
+  - **RAG retrieval** (ChromaDB over the PDF),
+  - **Agent tool use** (MCP server tools for weather).
+- The separation of responsibilities:
+  - vector DB retrieval provides grounded context,
+  - tools provide live/authoritative external data,
+  - the LLM composes a user-friendly response.
+- How “version 2” improves usability by adding a generative step to format and enrich the final answer while staying grounded in retrieved content and tool output.
+
+---
+
+### Steps
 
 1. For this lab, we're going to combine our previous agent that looks up weather with RAG to get information about offices based on a prompt and tell us what the weather is like for that locaion.
 
