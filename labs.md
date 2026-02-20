@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 3.1 - 10/30/25
+## Revision 4.0 - 02/20/26
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -137,7 +137,7 @@ python warmup_models.py
 
 **Purpose: In this lab, we’ll learn about the basics of agents and take our first pass at creating one. We'll also see how Chain of Thought occurs with LLMs.**
 
-1. For this lab, we have the outline of an agent in a file called *agent.py* in that directory. You can take a look at the code either by clicking on [**agent.py**](./agent.py) or by entering the command below in the codespace's terminal.
+1. For this lab, we have the outline of an agent in a file called *agent.py* in the project's directory. You can take a look at the code either by clicking on [**agent.py**](./agent.py) or by entering the command below in the codespace's terminal.
    
 ```
 code agent.py
