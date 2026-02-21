@@ -162,7 +162,7 @@ Args: {"query": "HQ"}
 
 Thought: I found the office is in Austin, TX. I need coordinates.
 Action: geocode_location
-Args: {"name": "Austin, TX"}
+Args: {"name": "Austin"}
 
 Thought: Now I'll get the weather at those coordinates
 Action: get_weather
@@ -184,11 +184,13 @@ Do NOT put arguments on the Action line. Arguments go ONLY in the Args line as J
 
 RULES:
 1. ALWAYS start with search_offices to find office data
-2. Extract the city from the search results, then geocode it
-3. Get the weather, then convert the temperature
-4. Office details and weather MUST come from tool results — do NOT invent them
-5. You may add one interesting fact about the city from your own knowledge
-6. Do NOT add extra text beyond the required format
+2. The FIRST search result is the most relevant — use the city from it
+3. When geocoding, use ONLY the city name (e.g. "New York" not "New York, NY")
+4. If geocoding fails, retry with a simpler name before trying other cities
+5. Get the weather, then convert the temperature
+6. Office details and weather MUST come from tool results — do NOT invent them
+7. You may add one interesting fact about the city from your own knowledge
+8. Do NOT add extra text beyond the required format
 """).strip()
 
 # ╔══════════════════════════════════════════════════════════════════╗

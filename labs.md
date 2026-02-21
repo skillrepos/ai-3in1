@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 4.0 - 02/20/26
+## Revision 4.1 - 02/20/26
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -516,7 +516,7 @@ Tell me about HQ
 Tell me about the Southern office
 ```
 
-![Agent query about HQ](./images/31ai48.png?raw=true "Agent query about HQ") 
+![Agent query about HQ](./images/31ai50.png?raw=true "Agent query about HQ") 
 
 <br><br>
 
@@ -536,7 +536,7 @@ Tell me about the Southern office
 code -d labs/common/lab5_agent_solution_v2.txt rag_agent.py
 ```
 
-![Updating the RAG agent](./images/31ai30.png?raw=true "Updating the RAG agent") 
+![Updating the RAG agent](./images/31ai51.png?raw=true "Updating the RAG agent") 
 
 <br><br>
 
@@ -555,7 +555,7 @@ Tell me about HQ
 Tell me about the Southern office
 ```
 
-![Running the updated RAG agent](./images/31ai34.png?raw=true "Running the updated RAG agent")
+![Running the updated RAG agent](./images/31ai52.png?raw=true "Running the updated RAG agent")
 
 <br><br>
 
