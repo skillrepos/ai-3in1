@@ -151,13 +151,33 @@ convert_c_to_f(c: float)
 For each step, respond with EXACTLY these three lines:
 
 Thought: <your reasoning about what to do next>
-Action: <tool name: search_offices, geocode_location, get_weather, convert_c_to_f, or DONE>
+Action: <exact tool name only>
 Args: <valid JSON arguments for the tool>
+
+Examples:
+
+Thought: I need to search for office information about HQ
+Action: search_offices
+Args: {"query": "HQ"}
+
+Thought: I found the office is in Austin, TX. I need coordinates.
+Action: geocode_location
+Args: {"name": "Austin, TX"}
+
+Thought: Now I'll get the weather at those coordinates
+Action: get_weather
+Args: {"lat": 30.2672, "lon": -97.7431}
+
+Thought: I need to convert 25.0 Celsius to Fahrenheit
+Action: convert_c_to_f
+Args: {"c": 25.0}
 
 When you have gathered all the information, respond with:
 Thought: I have all the information needed
 Action: DONE
 Args: {}
+
+Do NOT put arguments on the Action line. Arguments go ONLY in the Args line as JSON.
 
 RULES:
 1. ALWAYS start with search_offices to find office data
