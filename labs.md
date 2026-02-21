@@ -462,31 +462,28 @@ High revenue branch
 ---
 
 **What the RAG + agent example does**
-- Uses retrieval (from the Lab 4 vector index of `offices.pdf`) to find office details relevant to a user query.
-- Extracts a location from the retrieved office data and gets coordinates for it.
-- Uses an agent workflow to call weather tooling (via the MCP server from Lab 3) for the office location.
-- Produces a combined response: office info grounded in retrieved content + live weather from tools.
+- Adds a **RAG search tool** (`search_offices`) that the agent can call to find office information from the Lab 4 vector database.
+- Uses the same **TAO (Thought-Action-Observation) loop** from Labs 2 and 3, where the **LLM decides** which tools to call and in what order.
+- Combines **local tools** (vector search) with **remote tools** (MCP server) in a single agent workflow.
+- Produces office information grounded in retrieved content + live weather from MCP tools.
 
 **What it demonstrates**
-- A complete “AI 3-in-1” workflow:
-  - **Local model** (LLM via Ollama),
-  - **RAG retrieval** (ChromaDB over the PDF),
-  - **Agent tool use** (MCP server tools for weather).
-- The separation of responsibilities:
-  - vector DB retrieval provides grounded context,
-  - tools provide live/authoritative external data,
-  - the LLM composes a user-friendly response.
-- How “version 2” improves usability by adding a generative step to format and enrich the final answer while staying grounded in retrieved content and tool output.
+- A complete “AI 3-in-1” agentic workflow:
+  - **Local model** (LLM via Ollama drives all decisions),
+  - **RAG retrieval** (ChromaDB vector search as an agent tool),
+  - **MCP tool use** (weather/geocoding via the Lab 3 server).
+- **True agentic behavior**: the LLM controls the workflow — it decides to search offices first, extract the city, geocode it, get weather, and convert the temperature. The code doesn't hardcode this sequence.
+- How “version 2” enhances the agent's final answer by having the LLM compose a natural language summary with an interesting fact about the city.
 
 ---
 
 ### Steps
 
-1. For this lab, we're going to combine our previous agent that looks up weather with RAG to get information about offices based on a prompt and tell us what the weather is like for that locaion.
+1. For this lab, we're going to build an agent that uses RAG (from Lab 4's vector database) combined with MCP tools (from Lab 3's server) to answer questions about company offices and their local weather — all driven by the LLM through a TAO loop (like Labs 2 and 3).
 
 <br><br>
 
-2. We have a starter file for the new agent with rag in [**rag_agent.py**](./rag_agent.py). As before, we'll use the "view differences and merge" technique to learn about the code we'll be working with. The command to run this time is below. There are a number of helper functions in this code that are useful to understand. Take some time to look at each section as you merge them in.
+2. We have a starter file for the new agent in [**rag_agent.py**](./rag_agent.py). As before, we'll use the "view differences and merge" technique to learn about the code we'll be working with. The command to run this time is below. Note how this agent has a system prompt describing all four tools (`search_offices` + three MCP tools) and a TAO loop that can dispatch to either local or remote tools. Take some time to look at each section as you merge them in.
 
 ```
 code -d labs/common/lab5_agent_solution.txt rag_agent.py
@@ -521,7 +518,7 @@ Tell me about the Southern office
 
 <br><br>
 
-6. What you should see after that are some messages that show internal processing, such as the retrieved items from the RAG datastore.  Then the agent will run through the necessary steps like parsing the query to find a location, getting the coordinates for the location, getting the weather etc. At the end it will print out an answer to your prompt and the weather determined from the tool.
+6. What you should see is the agent's TAO loop in action — just like in Labs 2 and 3! The LLM will think about what to do, call `search_offices` to find relevant office data from the vector database, then geocode the city, get the weather, and convert the temperature. Each step shows the Thought, Action, and Observation. At the end, it displays the collected office and weather information.
  
 ![Running the RAG agent](./images/31ai29.png?raw=true "Running the RAG agent") 
 
@@ -531,7 +528,7 @@ Tell me about the Southern office
 
 <br><br>
 
-8. While this works, it isn't taking advantage of a model (other than for embeddings) and could be more informative and user-friendly. Let's change things to have our standard model add an additional fact about the city where the office is located and include that and the weather in a more user-friendly response. To see and make the changes you can do the usual diff and merge using the command below.
+8. While the agent works well and demonstrates true agentic behavior, the final output just displays the raw collected data. Let's enhance the agent so that when it finishes, the LLM composes a friendly, natural language summary that includes office details, weather, and an interesting fact about the city. To see and make the changes you can do the usual diff and merge using the command below.
 
 ```
 code -d labs/common/lab5_agent_solution_v2.txt rag_agent.py
@@ -549,7 +546,7 @@ python rag_agent.py
 
 <br><br>
 
-10. Now, you can try the same queries as before and you should get more user-friendly answers.
+10. Now, you can try the same queries as before and you should get more user-friendly answers with the LLM generating a natural language summary.
 
 ```
 Tell me about HQ
