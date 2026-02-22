@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 4.1 - 02/20/26
+## Revision 4.2 - 02/22/26
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -72,7 +72,7 @@ ollama pull llama3.2
 
 <br><br>
 
-5. Once the model is downloaded, you can see it (and its alias) with the first command below. Then run the model with the second command below. This will load it and make it available to query/prompt. 
+5. Once the model is downloaded, you can see it with the first command below. Then run the model with the second command below. This will load it and make it available to query/prompt. 
 
 ```
 ollama list
