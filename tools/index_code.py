@@ -123,14 +123,10 @@ def index_python_sources() -> None:
         print(f"[ERROR] {ROOT_DIR.resolve()} does not exist.")
         return
 
-    # ── 1. Load embedding model (once) ────────────────────────────
-    print(f"Embedding model: {EMBED_MODEL_NAME}")
-    embed_model = SentenceTransformer(EMBED_MODEL_NAME)
-
-    # ── 2. Fresh on-disk DB ───────────────────────────────────────
+    # ── 1. Fresh on-disk DB ───────────────────────────────────────
     reset_chroma(CHROMA_PATH)
 
-    # ── 3. Connect to persistent Chroma client ────────────────────
+    # ── 2. Connect to persistent Chroma client ────────────────────
     client = PersistentClient(
         path=str(CHROMA_PATH),
         settings=Settings(),                # default Chroma settings
@@ -141,7 +137,7 @@ def index_python_sources() -> None:
 
     file_counter = 0
 
-    # ── 4. Recursively scan .py files ─────────────────────────────
+    # ── 3. Recursively scan .py files ─────────────────────────────
     for root, dirs, files in os.walk(ROOT_DIR):
         # In-place filter to stop os.walk() descending into skip folders
         dirs[:] = [
@@ -164,11 +160,9 @@ def index_python_sources() -> None:
 
             # Chunk → embed → add to collection
             for idx, chunk in enumerate(chunk_python_code(code_text)):
-                vector = embed_model.encode(chunk).tolist()
-
+            
                 collection.add(
                     ids        =[f"{file_path}-{idx}"],
-                    embeddings =[vector],
                     documents  =[chunk],
                     metadatas  =[{"path": str(file_path), "chunk_index": idx}],
                 )
@@ -176,7 +170,7 @@ def index_python_sources() -> None:
             file_counter += 1
             print(f"Indexed {file_path}")
 
-    # ── 5. Done ───────────────────────────────────────────────────
+    # ── 4. Done ───────────────────────────────────────────────────
     print(
         f"Indexing complete: {file_counter} Python files processed.\n"
         "New vector DB saved to ./chroma_db"
