@@ -3,15 +3,18 @@
 #             separated results and explicit cosine-similarity labels.
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
 from chromadb import PersistentClient
 from chromadb.config import Settings, DEFAULT_TENANT, DEFAULT_DATABASE
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+
 
 # ── ANSI colours (works on most POSIX terminals) ─────────────────────────
 GREEN = "\033[92m"   # best match
 BLUE  = "\033[94m"   # other matches
 RED   = "\033[91m"   # similarity label / value
 RESET = "\033[0m"
+
+embed_fn = DefaultEmbeddingFunction()
 
 # ── Connect to on-disk Chroma database ───────────────────────────────────
 db_client = PersistentClient(
@@ -20,8 +23,6 @@ db_client = PersistentClient(
     tenant=DEFAULT_TENANT,
     database=DEFAULT_DATABASE,
 )
-
-embed_model = SentenceTransformer("all-MiniLM-L6-v2")  # same model as indexers
 
 # ── Utility: exact cosine similarity ─────────────────────────────────────
 def cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
@@ -37,7 +38,7 @@ def search(query: str, top_k: int = 3) -> None:
         return
     print(f"Collection contains {total_chunks} chunks.\n")
 
-    query_vec = embed_model.encode(query)
+    query_vec = np.array(embed_fn([query])[0])
 
     results = coll.query(
         query_embeddings=[query_vec.tolist()],
