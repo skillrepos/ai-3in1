@@ -33,7 +33,7 @@ from pathlib import Path
 # ────────────────────────── third-party libs ────────────────────────
 import chromadb
 from chromadb.config import Settings, DEFAULT_TENANT, DEFAULT_DATABASE
-from sentence_transformers import SentenceTransformer
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 from langchain_ollama import ChatOllama
@@ -43,7 +43,6 @@ from langchain_ollama import ChatOllama
 # ╚══════════════════════════════════════════════════════════════════╝
 CHROMA_PATH      = Path("./chroma_db")          # Where Lab 4 stored the vector DB
 COLLECTION_NAME  = "codebase"                   # Collection name from Lab 4
-EMBED_MODEL_NAME = "all-MiniLM-L6-v2"           # Same embedding model as Lab 4
 MCP_ENDPOINT     = "http://127.0.0.1:8000/mcp/" # MCP server from Lab 3
 TOP_K            = 3                            # Number of RAG results to retrieve
 
