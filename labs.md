@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 4.4 - 02/23/26
+## Revision 4.5 - 02/23/26
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -386,13 +386,13 @@ code tools/index_pdf.py
 
 <br><br>
 
-3. Let's create a vector database of our local python files. Run the program to index those as below. You'll see the program loading the embedding model that will turn the code chunks into numeric represenations in the vector database and then it will read and index our *.py files. **When you run the command below, there may be a long pause while things get loaded.**
+3. Let's create a vector database of our local python files. Run the program to index those as below. You'll see the program loading Chroma's built-in embedding model that will turn the code chunks into numeric represenations in the vector database and then it will read and index our *.py files. **When you run the command below, there may be a pause while things get loaded.**
 
 ```
 python tools/index_code.py
 ```
 
-![Running code indexer](./images/31ai24.png?raw=true "Running code indexer")
+![Running code indexer](./images/31ai53.png?raw=true "Running code indexer")
 
 <br><br>
 
@@ -415,7 +415,7 @@ embed model sentence-transformers
 async with Client mcp
 ```
 
-![Running search](./images/31ai25.png?raw=true "Running search")
+![Running search](./images/31ai54.png?raw=true "Running search")
 
 <br><br>
 
@@ -425,7 +425,7 @@ async with Client mcp
 python tools/index_pdf.py
 ```
 
-![Indexing PDF](./images/31ai26.png?raw=true "Indexing PDF")
+![Indexing PDF](./images/31ai55.png?raw=true "Indexing PDF")
 
 <br><br>
 
@@ -441,7 +441,7 @@ Tech Development sites
 High revenue branch
 ```
 
-![PDF search](./images/31ai27.png?raw=true "PDF search")
+![PDF search](./images/31ai56.png?raw=true "PDF search")
 
 <br><br>
 
