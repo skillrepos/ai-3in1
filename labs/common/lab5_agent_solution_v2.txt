@@ -62,7 +62,7 @@ ARGS_RE   = re.compile(r"Args:\s*(\{.*?\})(?:\s|$)", re.S | re.IGNORECASE)
 # ╔══════════════════════════════════════════════════════════════════╗
 # ║ 2.  RAG search tool (local — queries the ChromaDB from Lab 4)   ║
 # ╚══════════════════════════════════════════════════════════════════╝
-# Initialize the embedding function and database connection once at startup
+# Initialize the embedding model and database connection once at startup
 embed_fn = DefaultEmbeddingFunction()
 
 def open_collection() -> chromadb.Collection:
@@ -86,7 +86,6 @@ def search_offices(query: str) -> str:
     Returns the top matching text chunks as a string.
     """
     query_vec = embed_fn([query])[0]
-
     res = coll.query(
         query_embeddings=[query_vec],
         n_results=TOP_K,
@@ -203,14 +202,14 @@ async def run(prompt: str, max_steps: int = 10) -> None:
     The agent can call local tools (search_offices for RAG retrieval)
     and remote tools (geocode, weather, conversion via MCP server).
     """
-    llm = ChatOllama(model="llama3.2", temperature=0.0)
+    llm = ChatOllama(model="llama3.2:latest", temperature=0.0)
 
     messages = [
         {"role": "system", "content": SYSTEM},
         {"role": "user",   "content": prompt},
     ]
 
-    # Track gathered data as fallback for final display
+    # Track gathered data for the final display
     context = {
         "office_info": None,
         "city": None,
