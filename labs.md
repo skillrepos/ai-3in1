@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 4.3 - 02/23/26
+## Revision 4.4 - 02/23/26
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -308,7 +308,7 @@ code -d labs/common/lab3_agent_solution_dynamic.txt mcp_agent.py
 
 <br><br>
 
-6. Review and merge the changes as before. What we're highlighting in this step are the *System Prompt* that drives the LLM used by the agent, the connection with the MCP client at the /mcp/ endpoint, and the **MCP** calls the client makes to invoke tools on the server. When finished, close the tab to save the changes as before.
+6. Review and merge the changes as before. What we're highlighting in this step are the overall flow, the *System Prompt* that drives the LLM used by the agent, how the agent decides which tool to call via MCP via the LLM output, etc. When finished, close the tab to save the changes as before.
 
 ![Agent using MCP client code](./images/31ai43.png?raw=true "Agent using MCP client code") 
 
