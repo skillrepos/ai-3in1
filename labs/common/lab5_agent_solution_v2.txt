@@ -42,7 +42,7 @@ from pathlib import Path
 # ────────────────────────── third-party libs ────────────────────────
 import chromadb
 from chromadb.config import Settings, DEFAULT_TENANT, DEFAULT_DATABASE
-from sentence_transformers import SentenceTransformer
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 from langchain_ollama import ChatOllama
@@ -52,7 +52,6 @@ from langchain_ollama import ChatOllama
 # ╚══════════════════════════════════════════════════════════════════╝
 CHROMA_PATH      = Path("./chroma_db")          # Where Lab 4 stored the vector DB
 COLLECTION_NAME  = "codebase"                   # Collection name from Lab 4
-EMBED_MODEL_NAME = "all-MiniLM-L6-v2"           # Same embedding model as Lab 4
 MCP_ENDPOINT     = "http://127.0.0.1:8000/mcp/" # MCP server from Lab 3
 TOP_K            = 3                            # Number of RAG results to retrieve
 
@@ -63,8 +62,8 @@ ARGS_RE   = re.compile(r"Args:\s*(\{.*?\})(?:\s|$)", re.S | re.IGNORECASE)
 # ╔══════════════════════════════════════════════════════════════════╗
 # ║ 2.  RAG search tool (local — queries the ChromaDB from Lab 4)   ║
 # ╚══════════════════════════════════════════════════════════════════╝
-# Initialize the embedding model and database connection once at startup
-embed_model = SentenceTransformer(EMBED_MODEL_NAME)
+# Initialize the embedding function and database connection once at startup
+embed_fn = DefaultEmbeddingFunction()
 
 def open_collection() -> chromadb.Collection:
     """Open the ChromaDB collection populated in Lab 4."""
@@ -86,9 +85,10 @@ def search_offices(query: str) -> str:
 
     Returns the top matching text chunks as a string.
     """
-    q_emb = embed_model.encode(query).tolist()
+    query_vec = embed_fn([query])[0]
+
     res = coll.query(
-        query_embeddings=[q_emb],
+        query_embeddings=[query_vec],
         n_results=TOP_K,
         include=["documents"],
     )
