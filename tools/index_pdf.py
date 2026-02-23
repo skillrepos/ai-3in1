@@ -39,7 +39,6 @@ from chromadb.config import Settings, DEFAULT_TENANT, DEFAULT_DATABASE
 # 1.  Configuration / constants                                    ║
 # ╚════════════════════════════════════════════════════════════════╝
 PDF_DIR          = Path("./data")              # where to look for *.pdf
-EMBED_MODEL_NAME = "all-MiniLM-L6-v2"          # SBERT model on HF Hub
 CHROMA_PATH      = Path("./chroma_db")         # output folder (wiped each run)
 COLLECTION_NAME  = "codebase"                  # logical collection inside DB
 
@@ -95,14 +94,10 @@ def index_pdfs() -> None:
         print(f"No PDF files found in {PDF_DIR.resolve()}")
         return
 
-    # ── 1. Load embedding model (one-off) ─────────────────────────
-    print(f"Embedding model: {EMBED_MODEL_NAME}")
-    embed_model = SentenceTransformer(EMBED_MODEL_NAME)
-
-    # ── 2. Fresh DB on disk ───────────────────────────────────────
+    # ── 1. Fresh DB on disk ───────────────────────────────────────
     reset_chroma(CHROMA_PATH)
 
-    # ── 3. Connect to persistent Chroma client ────────────────────
+    # ── 2. Connect to persistent Chroma client ────────────────────
     client = PersistentClient(
         path=str(CHROMA_PATH),
         settings=Settings(),                  # defaults are fine
@@ -111,7 +106,7 @@ def index_pdfs() -> None:
     )
     coll = client.get_or_create_collection(COLLECTION_NAME)
 
-    # ── 4. Iterate over every PDF ─────────────────────────────────
+    # ── 3. Iterate over every PDF ─────────────────────────────────
     for pdf_path in pdf_files:
         print(f"→ Indexing {pdf_path.name}")
         try:
@@ -122,11 +117,9 @@ def index_pdfs() -> None:
 
         # Embed and write each line
         for idx, line in enumerate(lines):
-            vector = embed_model.encode(line).tolist()
 
             coll.add(
                 ids        =[f"{pdf_path}-{idx}"],            # unique ID
-                embeddings =[vector],                         # the vector
                 documents  =[line],                           # raw text
                 metadatas  =[{"path": str(pdf_path),
                               "chunk_index": idx}],           # extra info
