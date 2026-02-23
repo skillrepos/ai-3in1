@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 4.2 - 02/22/26
+## Revision 4.3 - 02/23/26
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -266,15 +266,13 @@ Here's a clue: "If latitude/longitude is in the Southern or Western hemisphere, 
 code -d labs/common/lab3_server_solution.txt mcp_server.py
 ```
 
+As you look at the differences, note that we are using FastMCP to more easily set up a server, with its *@mcp.tool* decorators to designate our functions as MCP tools. Also, we run this using the *streamable-http* transport protocol. Review each difference to see what is being done, then use the arrows to merge. When finished, click the "X" in the tab at the top to close and save the files.
+
 ![MCP server code](./images/31ai44.png?raw=true "MCP server code") 
 
 <br><br>
 
-2. As you look at the differences, note that we are using FastMCP to more easily set up a server, with its *@mcp.tool* decorators to designate our functions as MCP tools. Also, we run this using the *streamable-http* transport protocol. Review each difference to see what is being done, then use the arrows to merge. When finished, click the "X" in the tab at the top to close and save the files.
-
-<br><br>
-
-3. Now that we've built out the server code, run it using the command below. You should see some startup messages similar to the ones in the screenshot.
+2. Now that we've built out the server code, run it using the command below. You should see some startup messages similar to the ones in the screenshot.
 
 ```
 python mcp_server.py
@@ -284,13 +282,13 @@ python mcp_server.py
 
 <br><br>
 
-4. Since this terminal is now tied up with the running server, we need to have a second terminal to use to work with the client. So that we can see the server responses, let's just open another terminal side-by-side with this one. To do that, over in the upper right section of the *TERMINAL* panel, find the plus sign and click on the downward arrow next to it. (See screenshot below.) Then select "Split Terminal" from the popup menu. Then click into that terminal to do the steps for the rest of the lab. (FYI: If you want to open another full terminal at some point, you can just click on the "+" itself and not the down arrow.)
+3. Since this terminal is now tied up with the running server, we need to have a second terminal to use to work with the client. So that we can see the server responses, let's just open another terminal side-by-side with this one. To do that, over in the upper right section of the *TERMINAL* panel, find the plus sign and click on the downward arrow next to it. (See screenshot below.) Then select "Split Terminal" from the popup menu. Then click into that terminal to do the steps for the rest of the lab. (FYI: If you want to open another full terminal at some point, you can just click on the "+" itself and not the down arrow.)
 
 ![Opening a second terminal](./images/aiapps38.png?raw=true "Opening a second terminal") 
 
 <br><br>
 
-5. We also have a small helper script that connects to the MCP server and **lists the available tools** (for demo purposes).
+4. We also have a small helper script that connects to the MCP server and **lists the available tools** (for demo purposes).
   Take a look at the code in `tools/discover_tools.py`, then run it to print the server’s tool list: (Make sure to click back in the terminal before typing the second command.)
 
 ```
@@ -302,7 +300,7 @@ python tools/discover_tools.py
 
 <br><br>
 
-6. Now, let's turn our attention to the agent that will use the MCP server through an MCP client interface. First, in the second terminal, run a diff command so we can build out the new agent.
+5. Now, let's turn our attention to the agent that will use the MCP server through an MCP client interface. First, in the second terminal, run a diff command so we can build out the new agent.
 
 ```
 code -d labs/common/lab3_agent_solution_dynamic.txt mcp_agent.py
@@ -310,13 +308,13 @@ code -d labs/common/lab3_agent_solution_dynamic.txt mcp_agent.py
 
 <br><br>
 
-7. Review and merge the changes as before. What we're highlighting in this step are the *System Prompt* that drives the LLM used by the agent, the connection with the MCP client at the /mcp/ endpoint, and the **MCP** calls the client makes to invoke tools on the server. When finished, close the tab to save the changes as before.
+6. Review and merge the changes as before. What we're highlighting in this step are the *System Prompt* that drives the LLM used by the agent, the connection with the MCP client at the /mcp/ endpoint, and the **MCP** calls the client makes to invoke tools on the server. When finished, close the tab to save the changes as before.
 
 ![Agent using MCP client code](./images/31ai43.png?raw=true "Agent using MCP client code") 
 
 <br><br>
    
-8. After you've made and saved the changes, you can run the client in the terminal with the command below. **Note that there may be a long pause initially while the model is loaded and processed before you get the final answer. This could be on the order of minutes.**
+7. After you've made and saved the changes, you can run the client in the terminal with the command below. **Note that there may be a long pause initially while the model is loaded and processed before you get the final answer. This could be on the order of minutes.**
 
 ```
 python mcp_agent.py
@@ -324,7 +322,7 @@ python mcp_agent.py
 
 <br><br>
 
-9. The agent should start up, and wait for you to prompt it about weather in a location. You'll be able to see similar TAO output. And you'll also be able to see the server INFO messages in the other terminal as the MCP connections and events happen. A suggested prompt is below.
+8. The agent should start up, and wait for you to prompt it about weather in a location. You'll be able to see similar TAO output. And you'll also be able to see the server INFO messages in the other terminal as the MCP connections and events happen. A suggested prompt is below.
 
 ```
 What is the weather in New York?
@@ -335,13 +333,13 @@ What is the weather in New York?
 <br><br>
 
 
-10. Because we're using a tool to do the geolocation (get latitude and longitude), you can also put in locations like Sydney, Australia and get accurate results.
+9. Because we're using a tool to do the geolocation (get latitude and longitude), you can also put in locations like Sydney, Australia and get accurate results.
 
 ![Agent using MCP client running](./images/31ai45.png?raw=true "Agent using MCP client running") 
 
 <br><br>
 
-11.  When you're done, you can use 'exit' to stop the client and CTRL-C to stop the server. 
+10.  When you're done, you can use 'exit' to stop the client and CTRL-C to stop the server. 
 
 <p align="center">
 **[END OF LAB]**
