@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 
 PYTHON_ENV=$1
@@ -25,4 +24,5 @@ fi
 
 export PATH=./$PYTHON_ENV/bin:$PATH
 grep -qxF "source $(pwd)/$PYTHON_ENV/bin/activate" ~/.bashrc || echo "source $(pwd)/$PYTHON_ENV/bin/activate" >> ~/.bashrc
+
 
