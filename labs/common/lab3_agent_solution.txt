@@ -32,30 +32,39 @@ from fastmcp.exceptions import ToolError
 from langchain_ollama import ChatOllama   # local Llama-3.2 wrapper
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# ║ 1.  System prompt that defines the TAO protocol                  ║
+# ║ 1.  System prompt TEMPLATE — tool definitions come from MCP      ║
 # ╚══════════════════════════════════════════════════════════════════╝
-# This prompt teaches the LLM how to format its tool-calling responses.
-# The agent expects exactly 3 lines: Thought, Action, and Args.
-SYSTEM = textwrap.dedent("""
-You are an agent with three tools:
+# Instead of hardcoding tool names and signatures, we discover them
+# from the MCP server at runtime and fill in this template.
+SYSTEM_TEMPLATE = textwrap.dedent("""
+You are an agent with these tools (discovered from the MCP server):
 
-geocode_location(name:str)
-    → {"latitude": float, "longitude": float, "name": str}
-
-get_weather(lat:float, lon:float)
-    → {"temperature": float, "code": int, "conditions": str}
-
-convert_c_to_f(c:float)
-    → float
+{mcp_tool_descriptions}
 
 When you plan, emit exactly three lines:
 
 Thought: <your thought>
 Action: <tool name>
-Args: {"name":"City"}   or   {"lat":X,"lon":Y}   or   {"c":Z}
+Args: <valid JSON arguments for the tool>
 
 Do NOT output anything else.
 """).strip()
+
+def format_mcp_tools(tools) -> str:
+    """Build a human-readable tool catalogue from MCP tool metadata."""
+    lines = []
+    for t in tools:
+        schema = t.inputSchema or {}
+        props = schema.get("properties", {})
+        params = ", ".join(
+            f"{name}: {info.get('type', 'any')}" for name, info in props.items()
+        )
+        lines.append(f"{t.name}({params})")
+        if t.description:
+            first_line = t.description.strip().split("\n")[0].strip()
+            lines.append(f"    {first_line}")
+        lines.append("")
+    return "\n".join(lines).strip()
 
 ARGS_RE = re.compile(r"Args:\s*(\{.*?\})(?:\s|$)", re.S)
 
@@ -118,8 +127,19 @@ async def run(city: str) -> None:
     llm = ChatOllama(model="llama3.2", temperature=0.0)
 
     async with Client("http://127.0.0.1:8000/mcp/") as mcp:
+        # ── Discover available tools from the MCP server ───────────
+        mcp_tools = await mcp.list_tools()
+        tool_descriptions = format_mcp_tools(mcp_tools)
+        system_prompt = SYSTEM_TEMPLATE.format(
+            mcp_tool_descriptions=tool_descriptions
+        )
+
+        print(f"Discovered {len(mcp_tools)} tools from MCP server:")
+        for t in mcp_tools:
+            print(f"  - {t.name}")
+
         messages = [
-            {"role": "system", "content": SYSTEM},
+            {"role": "system", "content": system_prompt},
             {"role": "user",   "content": f"What is the current weather in {city}?"},
         ]
 

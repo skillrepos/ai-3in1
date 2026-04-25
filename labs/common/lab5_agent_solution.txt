@@ -121,31 +121,25 @@ def unwrap(obj):
     return obj
 
 # ╔══════════════════════════════════════════════════════════════════╗
-# ║ 4.  System prompt — tells the LLM about all available tools     ║
+# ║ 4.  System prompt TEMPLATE — MCP tools discovered at runtime    ║
 # ╚══════════════════════════════════════════════════════════════════╝
-SYSTEM = textwrap.dedent("""
+# The local tool (search_offices) is described statically because it
+# lives in this process.  The MCP tools are discovered dynamically
+# from the running MCP server — that's the whole point of MCP!
+SYSTEM_TEMPLATE = textwrap.dedent("""
 You are an office information agent. You answer questions about company
 offices by searching a database and looking up live weather data.
 
-You have these tools:
+You have this local tool:
 
 search_offices(query: str)
     Searches the company office database for matching information.
     Returns: text chunks with office names, cities, and details.
     ALWAYS call this first to find relevant office information.
 
-geocode_location(name: str)
-    Converts a city/location name to coordinates.
-    Returns: {"latitude": float, "longitude": float, "name": str}
+You also have these tools (discovered from the MCP server at runtime):
 
-get_weather(lat: float, lon: float)
-    Gets current weather for given coordinates.
-    Returns: {"temperature": float, "code": int, "conditions": str}
-    Note: temperature is in Celsius.
-
-convert_c_to_f(c: float)
-    Converts a Celsius temperature to Fahrenheit.
-    Returns: float
+{mcp_tool_descriptions}
 
 For each step, respond with EXACTLY these three lines:
 
@@ -157,24 +151,24 @@ Examples:
 
 Thought: I need to search for office information about HQ
 Action: search_offices
-Args: {"query": "HQ"}
+Args: {{"query": "HQ"}}
 
 Thought: I found the office is in Austin, TX. I need coordinates.
 Action: geocode_location
-Args: {"name": "Austin"}
+Args: {{"name": "Austin"}}
 
 Thought: Now I'll get the weather at those coordinates
 Action: get_weather
-Args: {"lat": 30.2672, "lon": -97.7431}
+Args: {{"lat": 30.2672, "lon": -97.7431}}
 
 Thought: I need to convert 25.0 Celsius to Fahrenheit
 Action: convert_c_to_f
-Args: {"c": 25.0}
+Args: {{"c": 25.0}}
 
 When you have gathered all the information, respond with:
 Thought: I have all the information needed
 Action: DONE
-Args: {}
+Args: {{}}
 
 Do NOT put arguments on the Action line. Arguments go ONLY in the Args line as JSON.
 
@@ -189,6 +183,34 @@ RULES:
 """).strip()
 
 # ╔══════════════════════════════════════════════════════════════════╗
+# ║ 4b. Helper: format MCP tool schemas for the system prompt       ║
+# ╚══════════════════════════════════════════════════════════════════╝
+def format_mcp_tools(tools) -> str:
+    """Build a human-readable tool catalogue from MCP tool metadata.
+
+    Called after mcp.list_tools() so the agent's prompt always
+    reflects whatever the server *actually* exposes — no hard-coding.
+
+    NOTE: The same MCP tool schemas can also be used with LangChain's
+    bind_tools() for structured tool calling:
+        lc_tools = [... convert MCP schemas to LangChain format ...]
+        llm_with_tools = llm.bind_tools(lc_tools)
+    """
+    lines = []
+    for t in tools:
+        schema = t.inputSchema or {}
+        props = schema.get("properties", {})
+        params = ", ".join(
+            f"{name}: {info.get('type', 'any')}" for name, info in props.items()
+        )
+        lines.append(f"{t.name}({params})")
+        if t.description:
+            first_line = t.description.strip().split("\n")[0].strip()
+            lines.append(f"    {first_line}")
+        lines.append("")
+    return "\n".join(lines).strip()
+
+# ╔══════════════════════════════════════════════════════════════════╗
 # ║ 5.  TAO agent loop — the LLM decides which tools to call        ║
 # ╚══════════════════════════════════════════════════════════════════╝
 async def run(prompt: str, max_steps: int = 10) -> None:
@@ -199,11 +221,6 @@ async def run(prompt: str, max_steps: int = 10) -> None:
     and remote tools (geocode, weather, conversion via MCP server).
     """
     llm = ChatOllama(model="llama3.2:latest", temperature=0.0)
-
-    messages = [
-        {"role": "system", "content": SYSTEM},
-        {"role": "user",   "content": prompt},
-    ]
 
     # Track gathered data for the final display
     context = {
@@ -218,6 +235,25 @@ async def run(prompt: str, max_steps: int = 10) -> None:
     print("="*60 + "\n")
 
     async with Client(MCP_ENDPOINT) as mcp:
+        # ── Discover available tools from the MCP server ───────────
+        # The MCP server tells us what tools it offers.  We format
+        # them and inject them into the system prompt dynamically.
+        mcp_tools = await mcp.list_tools()
+        tool_descriptions = format_mcp_tools(mcp_tools)
+        system_prompt = SYSTEM_TEMPLATE.format(
+            mcp_tool_descriptions=tool_descriptions
+        )
+
+        print(f"Discovered {len(mcp_tools)} MCP tools:")
+        for t in mcp_tools:
+            print(f"  - {t.name}")
+        print()
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": prompt},
+        ]
+
         for step in range(1, max_steps + 1):
             print(f"[Step {step}]")
 

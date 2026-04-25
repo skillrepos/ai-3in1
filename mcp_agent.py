@@ -19,8 +19,11 @@ from fastmcp import Client
 from fastmcp.exceptions import ToolError
 from langchain_ollama import ChatOllama
 
-SYSTEM = textwrap.dedent("""
-You are a weather information agent with access to these tools:
+# Instead of hardcoding tool definitions, we discover them from the
+# MCP server at runtime and inject them into this template.
+SYSTEM_TEMPLATE = textwrap.dedent("""
+You are a weather information agent with access to these tools
+(discovered from the MCP server at runtime):
 
 """).strip()
 
@@ -77,8 +80,10 @@ def extract_city(prompt: str) -> Optional[str]:
     llm = ChatOllama(model="llama3.2", temperature=0.0)
 
     async with Client("http://127.0.0.1:8000/mcp/") as mcp:
+        # TODO: Discover tools from MCP server using mcp.list_tools()
+        #       and build system_prompt from SYSTEM_TEMPLATE
         messages = [
-            {"role": "system", "content": SYSTEM},
+            {"role": "system", "content": SYSTEM_TEMPLATE},
             {"role": "user", "content": f"What is the current weather in {city}?"},
         ]
 

@@ -81,8 +81,10 @@ def unwrap(obj):
             return numeric_vals[0]
     return obj
 
-# Construct the system prompt
-SYSTEM = textwrap.dedent("""
+# System prompt TEMPLATE — MCP tools will be discovered at runtime
+# The local tool (search_offices) is described here; MCP tools are
+# injected dynamically after connecting to the MCP server.
+SYSTEM_TEMPLATE = textwrap.dedent("""
 You are an office information agent. You answer questions about company
 offices by searching a database and looking up live weather data.
 
@@ -94,7 +96,7 @@ Examples:
 When you have gathered all the information, respond with:
 Thought: I have all the information needed
 Action: DONE
-Args: {}
+Args: {{}}
 
 # Add Rules
 """).strip()

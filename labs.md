@@ -308,7 +308,7 @@ code -d labs/common/lab3_agent_solution_dynamic.txt mcp_agent.py
 
 <br><br>
 
-6. Review and merge the changes as before. What we're highlighting in this step are the overall flow, the *System Prompt* that drives the LLM used by the agent, how the agent decides which tool to call via MCP via the LLM output, etc. When finished, close the tab to save the changes as before.
+6. Review and merge the changes as before. What we're highlighting in this step are the overall flow, how the agent **dynamically discovers** available tools from the MCP server using `list_tools()` (instead of hardcoding them), how those tool descriptions are injected into the *System Prompt* at runtime, and how the agent decides which tool to call via the LLM output. This is the key MCP advantage — the client doesn't need to know in advance what tools the server offers. When finished, close the tab to save the changes as before.
 
 ![Agent using MCP client code](./images/31ai43.png?raw=true "Agent using MCP client code") 
 
@@ -481,7 +481,7 @@ High revenue branch
 
 <br><br>
 
-2. We have a starter file for the new agent in [**rag_agent.py**](./rag_agent.py). As before, we'll use the "view differences and merge" technique to learn about the code we'll be working with. The command to run this time is below. Note how this agent has a system prompt describing all four tools (`search_offices` + three MCP tools) and a TAO loop that can dispatch to either local or remote tools. Take some time to look at each section as you merge them in.
+2. We have a starter file for the new agent in [**rag_agent.py**](./rag_agent.py). As before, we'll use the "view differences and merge" technique to learn about the code we'll be working with. The command to run this time is below. Note how this agent describes the local `search_offices` tool in the system prompt, but **dynamically discovers** the three MCP tools (`geocode_location`, `get_weather`, `convert_c_to_f`) from the MCP server at runtime using `list_tools()` — just like we saw in Lab 3. The TAO loop can dispatch to either local or remote tools. Take some time to look at each section as you merge them in.
 
 ```
 code -d labs/common/lab5_agent_solution.txt rag_agent.py
