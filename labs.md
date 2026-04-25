@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 4.5 - 02/23/26
+## Revision 4.6 - 04/25/26
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
