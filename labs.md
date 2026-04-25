@@ -229,11 +229,6 @@ python agent.py
 
 <br><br>
 
-9. Try putting in *Sydney, Australia* and then check the output against the weather forecast on the web. Why do you think it doesn't match? How would you fix it?
-
-Here's a clue: "If latitude/longitude is in the Southern or Western hemisphere, use negative values as appropriate"
-
-
 <p align="center">
 **[END OF LAB]**
 </p>
