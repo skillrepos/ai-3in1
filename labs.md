@@ -295,7 +295,7 @@ python tools/discover_tools.py
 
 <br><br>
 
-5. Now, let's turn our attention to the agent that will use the MCP server through an MCP client interface. First, in the second terminal, run a diff command so we can build out the new agent.
+5. Now, let's turn our attention to the agent that will use the MCP server through an MCP client interface. In the second terminal, run a diff command so we can build out the new agent.
 
 ```
 code -d labs/common/lab3_agent_solution_dynamic.txt mcp_agent.py
