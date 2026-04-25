@@ -39,6 +39,8 @@ def get_weather(lat: float, lon: float) -> dict:
             print(f"  ⚠️  Retry {attempt + 1}/{max_retries - 1} after timeout...")
             time.sleep(2)  # Wait 2 seconds before retrying
 
+# TODO: Add convert_c_to_f tool
+
 # ── 3. Tool registry ────────────────────────────────────────────────────────
 
 
@@ -56,12 +58,15 @@ def run(question: str) -> str:
 
     print("\n--- Thought → Action → Observation loop ---\n")
 
-    max_iterations = 5  # Safety limit
+    tools_called = set()       # Track which tools the agent has used
+    max_iterations = 6         # Allow enough steps for multi-tool flow
     for i in range(max_iterations):
- 
+
 
         # Check if AI is done
         if "Final:" in response:
+            # Safety net: redirect if conversion was skipped
+
             # Extract and return the final answer
             final = response.split("Final:")[1].strip()
             return final

@@ -55,9 +55,14 @@ def get_weather(lat: float, lon: float) -> dict:
             print(f"  ⚠️  Retry {attempt + 1}/{max_retries - 1} after timeout...")
             time.sleep(2)  # Wait 2 seconds before retrying
 
+def convert_c_to_f(c: float) -> dict:
+    """Convert a Celsius temperature to Fahrenheit."""
+    return {"fahrenheit": round(c * 9/5 + 32, 1)}
+
 # ── 3. Tool registry ────────────────────────────────────────────────────────
 TOOLS = {
     "get_weather": get_weather,
+    "convert_c_to_f": convert_c_to_f,
 }
 
 # ── 4. LLM client ───────────────────────────────────────────────────────────
@@ -65,38 +70,49 @@ llm = ChatOllama(model="llama3.2", temperature=0.0)
 
 # ── 5. System prompt ────────────────────────────────────────────────────────
 SYSTEM = textwrap.dedent("""
-You are a weather agent with one tool:
+You are a weather agent with two tools:
 
 get_weather(lat:float, lon:float)
     → {"high": float, "low": float, "conditions": str}
-    Returns today's weather forecast with temperatures in Celsius
+    Returns today's weather forecast. Temperatures are in Celsius.
 
-You MUST follow this exact format. Do NOT add extra text or explanations.
+convert_c_to_f(c:float)
+    → {"fahrenheit": float}
+    Converts a Celsius temperature to Fahrenheit.
 
-To use the tool, output EXACTLY this format:
-Thought: <your reasoning>
-Action: get_weather
-Args: {"lat": <latitude>, "lon": <longitude>}
+WORKFLOW — always follow these steps in order:
+1. Call get_weather to get the forecast (returns Celsius)
+2. Call convert_c_to_f to convert the high temperature to Fahrenheit
+3. Give your Final answer with the temperature in Fahrenheit
 
-Example:
-Thought: I need to get weather for London at coordinates 51.5074, -0.1278
+For each tool call, output EXACTLY:
+Thought: <reasoning>
+Action: <tool_name>
+Args: <JSON arguments>
+
+When done, output EXACTLY:
+Thought: <reasoning>
+Final: <natural language answer>
+
+FULL EXAMPLE:
+
+Thought: I need to get weather for London at 51.5074, -0.1278
 Action: get_weather
 Args: {"lat": 51.5074, "lon": -0.1278}
 
-When you have the information needed to answer, output:
-Thought: <your reasoning>
-Final: <complete natural language answer - NO Thought/Action/Args format here>
+Thought: High is 18.5°C. I must convert to Fahrenheit using convert_c_to_f.
+Action: convert_c_to_f
+Args: {"c": 18.5}
 
-Example of Final:
-Thought: I now have the weather data for London
-Final: Today in London will be Slight rain showers with a high of 12.7°C and a low of 8.6°C.
+Thought: High is 65.3°F. I can give my final answer now.
+Final: Today in London will be Partly cloudy with a high of 65.3°F.
 
-CRITICAL RULES:
-1. Follow the format EXACTLY - every response must start with "Thought:"
-2. NEVER make up or hallucinate tool results
-3. After outputting Action/Args, STOP and wait for Observation
-4. Only proceed after you receive the actual Observation
-5. After "Final:" output ONLY plain text - do NOT use Thought/Action/Args format
+RULES:
+1. Every response MUST start with "Thought:"
+2. ALWAYS call convert_c_to_f before your Final — never skip it
+3. NEVER report Celsius in your Final answer
+4. NEVER do math yourself — always use the convert_c_to_f tool
+5. After Action/Args, STOP and wait for the Observation
 """).strip()
 
 # ── 6. TAO run helper ───────────────────────────────────────────────────────
@@ -109,7 +125,8 @@ def run(question: str) -> str:
 
     print("\n--- Thought → Action → Observation loop ---\n")
 
-    max_iterations = 5  # Safety limit
+    tools_called = set()       # Track which tools the agent has used
+    max_iterations = 6         # Allow enough steps for multi-tool flow
     for i in range(max_iterations):
         # Get AI's next step
         reply = llm.invoke(messages)
@@ -118,6 +135,16 @@ def run(question: str) -> str:
 
         # Check if AI is done
         if "Final:" in response:
+            # Safety net: if weather was fetched but never converted,
+            # redirect the agent back to call convert_c_to_f first.
+            if "get_weather" in tools_called and "convert_c_to_f" not in tools_called:
+                print("(Redirecting: must convert temperature before Final)\n")
+                messages.append({"role": "assistant", "content": response})
+                messages.append({"role": "user", "content":
+                    "You must convert the temperature to Fahrenheit using "
+                    "convert_c_to_f before giving your Final answer."})
+                continue
+
             # Extract and return the final answer
             final = response.split("Final:")[1].strip()
             return final
@@ -141,6 +168,7 @@ def run(question: str) -> str:
                 # Parse arguments and call the tool
                 args = json.loads(args_text)
                 observation = tool_func(**args)
+                tools_called.add(tool_name)
                 print(f"Observation: {observation}\n")
 
                 # Add to conversation history
