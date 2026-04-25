@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 4.6 - 04/25/26
+## Revision 4.8 - 04/25/26
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -323,18 +323,11 @@ python mcp_agent.py
 What is the weather in New York?
 ```
 
-![Agent using MCP client running](./images/aiapps40.png?raw=true "Agent using MCP client running") 
+![Agent using MCP client running](./images/31ai58.png?raw=true "Agent using MCP client running") 
 
 <br><br>
 
-
-9. Because we're using a tool to do the geolocation (get latitude and longitude), you can also put in locations like Sydney, Australia and get accurate results.
-
-![Agent using MCP client running](./images/31ai45.png?raw=true "Agent using MCP client running") 
-
-<br><br>
-
-10.  When you're done, you can use 'exit' to stop the client and CTRL-C to stop the server. 
+9.  When you're done, you can use 'exit' to stop the client and CTRL-C to stop the server. 
 
 <p align="center">
 **[END OF LAB]**
