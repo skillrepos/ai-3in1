@@ -221,7 +221,7 @@ python agent.py
 
 7. The agent will start running and will prompt for a location (or "exit" to finish). At the prompt, you can type in a location like "Paris, France" or "London" or "Raleigh" and hit *Enter*. You may see activity while the model is loaded. After that you'll be able to see the Thought -> Action -> Observation loop in practice as each one is listed out. You'll also see the arguments being passed to the tools as they are called. Finally you should see a human-friendly message summarizing the weather forecast.
 
-![Agent run](./images/31ai42.png?raw=true "Agent run") 
+![Agent run](./images/31ai57.png?raw=true "Agent run") 
 
 <br><br>
 
