@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 4.8 - 04/25/26
+## Revision 4.9 - 04/29/26
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -43,7 +43,7 @@
 1. The Ollama app is already installed as part of the codespace setup via [**scripts/startOllama.sh**](./scripts/startOllama.sh). Start it running with the first command below. (If you need to restart it at some point, you can use the same command. To see the different options Ollama makes available for working with models, you can run the second command below in the *TERMINAL*. 
 
 ```
-ollama serve &
+OLLAMA_KEEP_ALIVE=-1 ollama serve &
 <Hit Enter>
 ollama --help
 ```
