@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 4.9 - 04/29/26
+## Revision 5.0 - 06/24/26
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -44,7 +44,10 @@
 
 ```
 OLLAMA_KEEP_ALIVE=-1 ollama serve &
-<Hit Enter>
+```
+After this has started running, you'll see a lot of output on the screen. Hit `Enter` to get back to a command prompt and then issue the second command.
+
+```
 ollama --help
 ```
 
@@ -147,6 +150,8 @@ python simple_ollama.py
 ```
 python warmup_models.py
 ```
+
+Note: If you see warnings they are ok - as long as the warmup script finishes running.
 
 <p align="center">
 **[END OF LAB]**
