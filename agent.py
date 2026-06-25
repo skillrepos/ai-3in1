@@ -66,9 +66,6 @@ def run(question: str) -> str:
 
         # Check if AI is done
         if "Final:" in response:
-            # Safety net: redirect if conversion was skipped
-
-            # Extract and return the final answer
             final = response.split("Final:")[1].strip()
             return final
 
@@ -122,4 +119,6 @@ if __name__ == "__main__":
             print(f"\n✓ {answer}\n")
         except Exception as e:
             print(f"⚠️  Error: {e}\n")
+
+
 
