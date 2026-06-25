@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 5.0 - 06/24/26
+## Revision 5.1 - 06/24/26
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -12,7 +12,8 @@
   ollama serve &
   python warmup_models.py
   ```
-
+- Unless the lab tells you to click on a pop-up, you can dismiss any that come up while running the labs.
+  
 <br><br><br>
 **Lab 1 - Using Ollama to run models locally**
 
@@ -379,7 +380,7 @@ code tools/index_pdf.py
 
 <br><br>
 
-3. Let's create a vector database of our local python files. Run the program to index those as below. You'll see the program loading Chroma's built-in embedding model that will turn the code chunks into numeric represenations in the vector database and then it will read and index our *.py files. **When you run the command below, there may be a pause while things get loaded.**
+3. Let's create a vector database of our local python files. Run the program to index those as below. You'll see the program loading Chroma's built-in embedding model that will turn the code chunks into numeric represenations in the vector database and then it will read and index our *.py files. **When you run the command below, there may be a pause while things get loaded.** (You can ignore any warnings in yellow text prior to the output.)
 
 ```
 python tools/index_code.py
