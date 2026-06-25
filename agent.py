@@ -4,6 +4,7 @@ import json
 import requests
 import textwrap
 import time
+from datetime import date
 from langchain_ollama import ChatOllama
 
 # ── 1. Open-Meteo weather-code lookup ──────────────────────────────────────
@@ -121,3 +122,4 @@ if __name__ == "__main__":
             print(f"\n✓ {answer}\n")
         except Exception as e:
             print(f"⚠️  Error: {e}\n")
+
