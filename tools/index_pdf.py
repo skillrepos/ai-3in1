@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 index_pdfs.py
@@ -31,9 +30,11 @@ from typing import List
 
 # ───────────────────── 3rd-party imports ───────────────────────────
 import pdfplumber                               # PDF text extractor
-from sentence_transformers import SentenceTransformer
 from chromadb import PersistentClient
 from chromadb.config import Settings, DEFAULT_TENANT, DEFAULT_DATABASE
+from chromadb.utils.embedding_functions import (
+    SentenceTransformerEmbeddingFunction,       # SBERT embeddings
+)
 
 # ╔════════════════════════════════════════════════════════════════╗
 # 1.  Configuration / constants                                    ║
@@ -41,6 +42,7 @@ from chromadb.config import Settings, DEFAULT_TENANT, DEFAULT_DATABASE
 PDF_DIR          = Path("./data")              # where to look for *.pdf
 CHROMA_PATH      = Path("./chroma_db")         # output folder (wiped each run)
 COLLECTION_NAME  = "codebase"                  # logical collection inside DB
+EMBED_MODEL_NAME = "all-MiniLM-L6-v2"          # SBERT model
 
 # ╔════════════════════════════════════════════════════════════════╗
 # 2.  Regex helper: split lines & trim whitespace                  ║
@@ -104,7 +106,16 @@ def index_pdfs() -> None:
         tenant=DEFAULT_TENANT,
         database=DEFAULT_DATABASE,
     )
-    coll = client.get_or_create_collection(COLLECTION_NAME)
+
+    # Explicit SBERT embedding function — same model/runtime as the
+    # code-indexing pipeline, and keeps Chroma from loading its ONNX
+    # default (the source of the onnxruntime warning).
+    embed_fn = SentenceTransformerEmbeddingFunction(model_name=EMBED_MODEL_NAME)
+
+    coll = client.get_or_create_collection(
+        COLLECTION_NAME,
+        embedding_function=embed_fn,
+    )
 
     # ── 3. Iterate over every PDF ─────────────────────────────────
     for pdf_path in pdf_files:
@@ -115,14 +126,16 @@ def index_pdfs() -> None:
             print(f"[WARN] Could not read {pdf_path}: {err}")
             continue
 
-        # Embed and write each line
-        for idx, line in enumerate(lines):
+        # Batch all lines from this PDF into a single add() call
+        ids       = [f"{pdf_path}-{idx}" for idx in range(len(lines))]
+        metadatas = [{"path": str(pdf_path), "chunk_index": idx}
+                     for idx in range(len(lines))]
 
+        if lines:
             coll.add(
-                ids        =[f"{pdf_path}-{idx}"],            # unique ID
-                documents  =[line],                           # raw text
-                metadatas  =[{"path": str(pdf_path),
-                              "chunk_index": idx}],           # extra info
+                ids=ids,
+                documents=lines,
+                metadatas=metadatas,
             )
 
     print("Indexing complete — new DB stored in ./chroma_db")
