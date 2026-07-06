@@ -5,7 +5,7 @@
 import numpy as np
 from chromadb import PersistentClient
 from chromadb.config import Settings, DEFAULT_TENANT, DEFAULT_DATABASE
-from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
 
 # ── ANSI colours (works on most POSIX terminals) ─────────────────────────
@@ -14,7 +14,10 @@ BLUE  = "\033[94m"   # other matches
 RED   = "\033[91m"   # similarity label / value
 RESET = "\033[0m"
 
-embed_fn = DefaultEmbeddingFunction()
+# Same SBERT model used by the indexing scripts — queries must be embedded
+# in the same vector space as the stored chunks.
+EMBED_MODEL_NAME = "all-MiniLM-L6-v2"
+embed_fn = SentenceTransformerEmbeddingFunction(model_name=EMBED_MODEL_NAME)
 
 # ── Connect to on-disk Chroma database ───────────────────────────────────
 db_client = PersistentClient(
@@ -30,9 +33,12 @@ def cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
 
 # ── Core search routine ──────────────────────────────────────────────────
 def search(query: str, top_k: int = 3) -> None:
-    coll = db_client.get_or_create_collection(name="codebase")
+    coll = db_client.get_or_create_collection(
+        name="codebase",
+        embedding_function=embed_fn,
+    )
 
-    total_chunks = len(coll.get().get("documents", []))
+    total_chunks = coll.count()
     if total_chunks == 0:
         print("Collection is empty — nothing to search.")
         return
