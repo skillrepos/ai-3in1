@@ -1,0 +1,390 @@
+{
+  "files": {
+    "labs/common/lab2_agent_solution.txt": [
+      {
+        "anchor": "\"\"\"",
+        "title": "get_weather() request URL",
+        "note": [
+          "**Builds the Open-Meteo forecast URL for today's high, low, and conditions.**",
+          "- Free weather API, no key required",
+          "- get_weather becomes a tool the agent can call"
+        ]
+      },
+      {
+        "anchor": "r = requests.get(url, timeout=15)",
+        "endAnchor": "}",
+        "title": "Fetch and parse forecast",
+        "note": [
+          "**Calls the weather API and returns high, low, and a friendly conditions string.**",
+          "- WEATHER_CODES maps the numeric code to text",
+          "- raise_for_status() surfaces HTTP errors to the retry logic"
+        ]
+      },
+      {
+        "anchor": "def convert_c_to_f(c: float) -> dict:",
+        "title": "convert_c_to_f() tool",
+        "note": [
+          "**Second tool: converts Celsius to Fahrenheit, returned as a dict.**"
+        ]
+      },
+      {
+        "anchor": "TOOLS = {",
+        "title": "Tool registry",
+        "note": [
+          "**Maps tool names to functions so the agent can dispatch by name.**",
+          "- The LLM emits a name; TOOLS.get() looks up the function"
+        ]
+      },
+      {
+        "anchor": "llm = ChatOllama(model=\"llama3.2\", temperature=0.0)",
+        "title": "Local LLM client",
+        "note": [
+          "**Connects to the local Ollama llama3.2 model; temperature 0 keeps replies deterministic.**"
+        ]
+      },
+      {
+        "anchor": "\"\"\"Execute the TAO loop, letting the AI decide which tools to call.\"\"\"",
+        "title": "Seed the TAO loop",
+        "note": [
+          "**Starts the Thought-Action-Observation loop with the system prompt and user question.**",
+          "- messages grows each turn as the agent reasons and observes"
+        ]
+      },
+      {
+        "anchor": "# Get AI's next step",
+        "title": "Get the model's next step",
+        "note": [
+          "**Asks the LLM for its next Thought/Action, then prints it.**"
+        ]
+      },
+      {
+        "anchor": "action_line = response.split(\"Action:\")[1].split(\"\\n\")[0].strip()",
+        "title": "Parse Action and Args",
+        "note": [
+          "**Pulls the tool name and JSON args out of the LLM's text response.**",
+          "- Brittle string parsing — later labs switch to regex"
+        ]
+      },
+      {
+        "anchor": "tool_name = action_line",
+        "title": "Look up the tool",
+        "note": [
+          "**Resolves the parsed name to an actual function via the TOOLS registry.**"
+        ]
+      },
+      {
+        "anchor": "args = json.loads(args_text)",
+        "endAnchor": "tools_called.add(tool_name)",
+        "title": "Run the selected tool",
+        "note": [
+          "**Parses JSON args, calls the tool, and records that it ran.**",
+          "- tools_called tracks coverage so the loop knows when it's done"
+        ]
+      },
+      {
+        "anchor": "messages.append({\"role\": \"assistant\", \"content\": response})",
+        "endAnchor": "messages.append({\"role\": \"user\", \"content\": f\"Observation: {observation}\"})",
+        "title": "Feed observation back",
+        "note": [
+          "**Appends the model's reply and the tool result so the next turn sees them.**",
+          "- Closing this loop is what makes the agent 'agentic'"
+        ]
+      }
+    ],
+    "labs/common/lab3_server_solution.txt": [
+      {
+        "anchor": "def get_weather(lat: float, lon: float) -> dict:",
+        "lines": 1,
+        "title": "get_weather MCP tool",
+        "note": [
+          "**Declares the weather tool the MCP server exposes to clients.**",
+          "- The @mcp.tool decorator above registers it automatically"
+        ]
+      },
+      {
+        "anchor": "url = (",
+        "endAnchor": ")",
+        "title": "Weather request URL",
+        "note": [
+          "**Builds the Open-Meteo current-weather URL from the lat/lon args.**"
+        ]
+      },
+      {
+        "anchor": "# Extract and return weather data",
+        "title": "Parse the weather response",
+        "note": [
+          "**Pulls temperature and weathercode from the JSON into a tidy dict.**",
+          "- WEATHER_CODES turns the numeric code into readable conditions"
+        ]
+      },
+      {
+        "anchor": "def convert_c_to_f(c: float) -> float:",
+        "title": "convert_c_to_f MCP tool",
+        "note": [
+          "**A second server tool: plain Celsius-to-Fahrenheit math.**"
+        ]
+      },
+      {
+        "anchor": "url = \"https://geocoding-api.open-meteo.com/v1/search\"",
+        "lines": 2,
+        "title": "Geocoding request setup",
+        "note": [
+          "**Targets the Open-Meteo geocoding API to turn a place name into coordinates.**",
+          "- last_error holds the reason if every attempt fails"
+        ]
+      },
+      {
+        "anchor": "mcp.run(",
+        "title": "Start the MCP server",
+        "note": [
+          "**Runs the server over HTTP on port 8000 at /mcp/ so clients can connect.**"
+        ]
+      }
+    ],
+    "labs/common/lab3_agent_solution_dynamic.txt": [
+      {
+        "anchor": "def format_mcp_tools(tools) -> str:",
+        "endAnchor": "return \"\\n\".join(lines).strip()",
+        "title": "Format MCP tool schemas",
+        "note": [
+          "**Turns the server's live tool list into a text catalogue for the system prompt.**",
+          "- Runs after list_tools(), so the prompt reflects real tools, not hard-coded ones"
+        ]
+      },
+      {
+        "anchor": "async def run_dynamic(city: str, max_steps: int = 10) -> None:",
+        "lines": 8,
+        "title": "run_dynamic() entry point",
+        "note": [
+          "**Defines the dynamic loop where the LLM, not the code, picks which tools to call.**",
+          "- max_steps caps iterations to prevent infinite loops"
+        ]
+      },
+      {
+        "anchor": "# ── Discover available tools from the MCP server ───────────",
+        "title": "Discover tools at runtime",
+        "note": [
+          "**Asks the MCP server what tools it has and injects them into the system prompt.**",
+          "- The core MCP idea: no hard-coded tool list on the client"
+        ]
+      },
+      {
+        "anchor": "{\"role\": \"system\", \"content\": system_prompt},",
+        "lines": 1,
+        "title": "System prompt with live tools",
+        "note": [
+          "**Seeds the conversation with the dynamically built tool descriptions.**"
+        ]
+      },
+      {
+        "anchor": "print(\"\\n\" + \"=\"*60)",
+        "lines": 17,
+        "title": "Banner and context store",
+        "note": [
+          "**Prints the discovered tools and sets up a dict to collect results across steps.**"
+        ]
+      },
+      {
+        "anchor": "# Get LLM's decision",
+        "endAnchor": "return",
+        "title": "Get and parse the decision",
+        "note": [
+          "**Asks the LLM for its next Action and bails if it can't be parsed.**",
+          "- ACTION_RE regex replaces Lab 2's brittle string splitting"
+        ]
+      },
+      {
+        "anchor": "# Dynamically call the tool the LLM selected",
+        "title": "Announce the tool call",
+        "note": [
+          "**Logs which MCP tool the LLM chose and the args it passed.**"
+        ]
+      },
+      {
+        "anchor": "result = unwrap(await mcp.call_tool(action, args))",
+        "lines": 1,
+        "title": "Call the MCP tool",
+        "note": [
+          "**Dispatches the LLM-selected tool to the server and unwraps the result.**",
+          "- Nothing here is tool-specific — any discovered tool works"
+        ]
+      },
+      {
+        "anchor": "context[\"temperature_f\"] = float(result)",
+        "endAnchor": "messages.append({\"role\": \"user\", \"content\": observation})",
+        "title": "Record the observation",
+        "note": [
+          "**Stores the result and feeds it back as an Observation for the next turn.**",
+          "- Closes the TAO loop so the agent can reason on what it learned"
+        ]
+      }
+    ],
+    "labs/common/lab5_agent_solution.txt": [
+      {
+        "anchor": "# Regex for parsing LLM responses (same pattern as Labs 2 and 3)",
+        "title": "Response-parsing regexes",
+        "note": [
+          "**Compiled patterns that pull Action and Args out of the LLM's text.**",
+          "- Same approach reused from Labs 2 and 3"
+        ]
+      },
+      {
+        "anchor": "# Initialize the embedding model and database connection once at startup",
+        "title": "Embedding function",
+        "note": [
+          "**Loads the embedding model used to vectorize search queries.**",
+          "- Must match the model that indexed the PDFs in Lab 4"
+        ]
+      },
+      {
+        "anchor": "def open_collection() -> chromadb.Collection:",
+        "endAnchor": "return \"\\n---\\n\".join(docs)",
+        "title": "RAG retrieval tool",
+        "note": [
+          "**Opens the Lab 4 vector DB and defines search_offices — the 'Retrieval' in RAG.**",
+          "- Embeds the query and returns the top matching office chunks",
+          "- This is a LOCAL tool, unlike the remote MCP ones"
+        ]
+      },
+      {
+        "anchor": "def format_mcp_tools(tools) -> str:",
+        "endAnchor": "return \"\\n\".join(lines).strip()",
+        "title": "Format MCP tool schemas",
+        "note": [
+          "**Builds a text catalogue of the server's tools for the system prompt.**",
+          "- Same dynamic-discovery helper introduced in Lab 3"
+        ]
+      },
+      {
+        "anchor": "llm = ChatOllama(model=\"llama3.2:latest\", temperature=0.0)",
+        "lines": 1,
+        "title": "Local LLM client",
+        "note": [
+          "**Creates the Ollama model that drives the agentic RAG loop.**"
+        ]
+      },
+      {
+        "anchor": "# ── Discover available tools from the MCP server ───────────",
+        "endAnchor": "]",
+        "title": "Discover tools and seed prompt",
+        "note": [
+          "**Fetches the MCP server's tools at runtime and builds the system prompt and message list.**",
+          "- Local search_offices plus remote MCP tools are all in play"
+        ]
+      },
+      {
+        "anchor": "# Ask the LLM what to do next",
+        "endAnchor": "action = action_match.group(1).lower()",
+        "title": "Get the next action",
+        "note": [
+          "**Asks the LLM what to do next and parses the Action, breaking if it can't.**"
+        ]
+      },
+      {
+        "anchor": "if action == \"done\":",
+        "endAnchor": "print()",
+        "title": "Finish and report",
+        "note": [
+          "**When the LLM says 'done', prints the collected office info and weather.**"
+        ]
+      },
+      {
+        "anchor": "if action == \"search_offices\":",
+        "endAnchor": "result = unwrap(raw)",
+        "title": "Route to local or MCP tool",
+        "note": [
+          "**search_offices runs locally for RAG; every other action dispatches to the MCP server.**",
+          "- One loop, two tool sources — the heart of this lab"
+        ]
+      }
+    ],
+    "labs/common/lab5_agent_solution_v2.txt": [
+      {
+        "anchor": "# Regex for parsing LLM responses (same pattern as Labs 2 and 3)",
+        "title": "Response-parsing regexes",
+        "note": [
+          "**Compiled patterns that pull Action and Args out of the LLM's text.**",
+          "- Same approach reused from Labs 2 and 3"
+        ]
+      },
+      {
+        "anchor": "# Initialize the embedding model and database connection once at startup",
+        "title": "Embedding function",
+        "note": [
+          "**Loads the embedding model used to vectorize search queries.**",
+          "- Must match the model that indexed the PDFs in Lab 4"
+        ]
+      },
+      {
+        "anchor": "def open_collection() -> chromadb.Collection:",
+        "endAnchor": "return \"\\n---\\n\".join(docs)",
+        "title": "RAG retrieval tool",
+        "note": [
+          "**Opens the Lab 4 vector DB and defines search_offices — the 'Retrieval' in RAG.**",
+          "- Embeds the query and returns the top matching office chunks",
+          "- This is a LOCAL tool, unlike the remote MCP ones"
+        ]
+      },
+      {
+        "anchor": "def format_mcp_tools(tools) -> str:",
+        "endAnchor": "return \"\\n\".join(lines).strip()",
+        "title": "Format MCP tool schemas",
+        "note": [
+          "**Builds a text catalogue of the server's tools for the system prompt.**",
+          "- Same dynamic-discovery helper introduced in Lab 3"
+        ]
+      },
+      {
+        "anchor": "llm = ChatOllama(model=\"llama3.2:latest\", temperature=0.0)",
+        "lines": 1,
+        "title": "Local LLM client",
+        "note": [
+          "**Creates the Ollama model that drives the agentic RAG loop.**"
+        ]
+      },
+      {
+        "anchor": "# ── Discover available tools from the MCP server ───────────",
+        "endAnchor": "]",
+        "title": "Discover tools and seed prompt",
+        "note": [
+          "**Fetches the MCP server's tools at runtime and builds the system prompt and message list.**",
+          "- Local search_offices plus remote MCP tools are all in play"
+        ]
+      },
+      {
+        "anchor": "# Ask the LLM what to do next",
+        "endAnchor": "action = action_match.group(1).lower()",
+        "title": "Get the next action",
+        "note": [
+          "**Asks the LLM what to do next and parses the Action, breaking if it can't.**"
+        ]
+      },
+      {
+        "anchor": "if action == \"done\":",
+        "endAnchor": "print()",
+        "title": "Finish with LLM summary",
+        "note": [
+          "**v2 change: if the model wrote a 'Final:' summary, print that instead of raw data.**",
+          "- Falls back to the plain data dump when no summary is present"
+        ]
+      },
+      {
+        "anchor": "if action == \"search_offices\":",
+        "endAnchor": "result = unwrap(raw)",
+        "title": "Route to local or MCP tool",
+        "note": [
+          "**search_offices runs locally for RAG; every other action dispatches to the MCP server.**",
+          "- One loop, two tool sources — the heart of this lab"
+        ]
+      },
+      {
+        "anchor": "print(\"RAG-Enhanced Office Weather Agent (v2 — LLM summaries)\")",
+        "lines": 1,
+        "title": "v2 startup banner",
+        "note": [
+          "**Updated header marking this as the LLM-summary version of the agent.**"
+        ]
+      }
+    ]
+  }
+}
