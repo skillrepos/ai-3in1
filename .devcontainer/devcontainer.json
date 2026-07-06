@@ -33,6 +33,6 @@
     },
     "postCreateCommand": "bash -i scripts/pysetup.sh py_env && bash -i scripts/startOllama.sh",
     "postAttachCommand": {
-    "merge-info": "code --install-extension ${containerWorkspaceFolder}/.devcontainer/merge-info-0.1.0.vsix || true"
+        "merge-info": "code --install-extension ${containerWorkspaceFolder}/.devcontainer/merge-info-0.1.0.vsix || true"
   }
 }
