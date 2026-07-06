@@ -17,8 +17,8 @@ Design goals
 
 Output
 ------
-• `./chroma_db/` — on-disk Chroma database (overwritten on each run)  
-• Collection name `"codebase"`  
+• `./chroma_db/` — on-disk Chroma database (overwritten on each run)
+• Collection name `"codebase"`
 • One vector per code chunk, metadata keeps file path + chunk index
 """
 
@@ -31,10 +31,12 @@ from pathlib import Path
 from typing import Iterable, List
 
 # ─── third-party ---------------------------------------------------
-from sentence_transformers import SentenceTransformer          # local embeddings
 from tiktoken import encoding_for_model                        # token counter
 from chromadb import PersistentClient                          # Chroma client
 from chromadb.config import Settings, DEFAULT_TENANT, DEFAULT_DATABASE
+from chromadb.utils.embedding_functions import (
+    SentenceTransformerEmbeddingFunction,                      # SBERT embeddings
+)
 
 # ╔════════════════════════════════════════════════════════════════╗
 # 1.  Configuration                                                ║
@@ -133,7 +135,16 @@ def index_python_sources() -> None:
         tenant=DEFAULT_TENANT,
         database=DEFAULT_DATABASE,
     )
-    collection = client.get_or_create_collection(COLLECTION_NAME)
+
+    # Explicit SBERT embedding function — same model/runtime as the
+    # PDF pipeline, and keeps Chroma from loading its ONNX default
+    # (which is what produced the onnxruntime warning).
+    embed_fn = SentenceTransformerEmbeddingFunction(model_name=EMBED_MODEL_NAME)
+
+    collection = client.get_or_create_collection(
+        COLLECTION_NAME,
+        embedding_function=embed_fn,
+    )
 
     file_counter = 0
 
@@ -158,13 +169,21 @@ def index_python_sources() -> None:
                 print(f"[WARN] Could not read {file_path}: {err}")
                 continue
 
-            # Chunk → embed → add to collection
+            # Chunk the file, then add all chunks in one batched call
+            ids: List[str] = []
+            documents: List[str] = []
+            metadatas: List[dict] = []
+
             for idx, chunk in enumerate(chunk_python_code(code_text)):
-            
+                ids.append(f"{file_path}-{idx}")
+                documents.append(chunk)
+                metadatas.append({"path": str(file_path), "chunk_index": idx})
+
+            if documents:
                 collection.add(
-                    ids        =[f"{file_path}-{idx}"],
-                    documents  =[chunk],
-                    metadatas  =[{"path": str(file_path), "chunk_index": idx}],
+                    ids=ids,
+                    documents=documents,
+                    metadatas=metadatas,
                 )
 
             file_counter += 1
