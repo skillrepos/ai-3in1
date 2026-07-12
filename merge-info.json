@@ -89,6 +89,34 @@
           "**Appends the model's reply and the tool result so the next turn sees them.**",
           "- Closing this loop is what makes the agent 'agentic'"
         ]
+      },
+      {
+        "anchor": "You are a weather agent with two tools:",
+        "endAnchor": "3. Give your Final answer with the temperature in Fahrenheit",
+        "title": "System prompt: role & tools",
+        "note": [
+          "**Defines the agent's persona, its two tools, and the order it must call them.**",
+          "- The LLM only knows about tools listed here",
+          "- WORKFLOW forces get_weather then convert_c_to_f before the answer"
+        ]
+      },
+      {
+        "anchor": "For each tool call, output EXACTLY:",
+        "endAnchor": "Final: Today in London will be Partly cloudy with a high of 65.3°F.",
+        "title": "System prompt: TAO format",
+        "note": [
+          "**Pins the exact Thought/Action/Args wording the response parser depends on.**",
+          "- The worked example teaches the pattern by demonstration"
+        ]
+      },
+      {
+        "anchor": "RULES:",
+        "endAnchor": "8. NEVER output a Final answer until you have received Observations from both tools",
+        "title": "System prompt: guardrails",
+        "note": [
+          "**Hard constraints that keep the agent honest and on-format.**",
+          "- No self-done math, no guessed temps, one step per turn"
+        ]
       }
     ],
     "labs/common/lab3_server_solution.txt": [
@@ -217,6 +245,24 @@
           "**Stores the result and feeds it back as an Observation for the next turn.**",
           "- Closes the TAO loop so the agent can reason on what it learned"
         ]
+      },
+      {
+        "anchor": "{mcp_tool_descriptions}",
+        "endAnchor": "Args: <valid JSON arguments for the tool>",
+        "title": "System prompt: format + live tools",
+        "note": [
+          "**Template whose {mcp_tool_descriptions} slot is filled with tools discovered at runtime.**",
+          "- Sets the Thought/Action/Args format and the DONE signal"
+        ]
+      },
+      {
+        "anchor": "Examples:",
+        "endAnchor": "Do NOT add extra text. Do NOT explain after your three lines.",
+        "title": "System prompt: worked examples",
+        "note": [
+          "**Few-shot examples teaching the exact call pattern for each tool.**",
+          "- Doubled braces {{}} survive .format() as literal JSON braces"
+        ]
       }
     ],
     "labs/common/lab5_agent_solution.txt": [
@@ -295,6 +341,34 @@
         "note": [
           "**search_offices runs locally for RAG; every other action dispatches to the MCP server.**",
           "- One loop, two tool sources — the heart of this lab"
+        ]
+      },
+      {
+        "anchor": "You have this local tool:",
+        "endAnchor": "Args: <valid JSON arguments for the tool>",
+        "title": "System prompt: local + MCP tools",
+        "note": [
+          "**Advertises the local search_offices tool plus the runtime-discovered MCP tools.**",
+          "- search_offices must run first — it's the RAG retrieval step",
+          "- {mcp_tool_descriptions} is filled in at runtime"
+        ]
+      },
+      {
+        "anchor": "Thought: I need to search for office information about HQ",
+        "endAnchor": "Args: {{\"c\": 25.0}}",
+        "title": "System prompt: worked example",
+        "note": [
+          "**End-to-end example: search offices, geocode, weather, convert.**",
+          "- Shows the LLM the full multi-tool TAO sequence"
+        ]
+      },
+      {
+        "anchor": "Do NOT put arguments on the Action line. Arguments go ONLY in the Args line as JSON.",
+        "endAnchor": "7. Do NOT add extra text beyond the three lines",
+        "title": "System prompt: guardrails",
+        "note": [
+          "**Ordering and formatting rules that keep the agent reliable.**",
+          "- Always search first; args go only in the Args line; no invented data"
         ]
       }
     ],
@@ -383,6 +457,43 @@
         "title": "v2 startup banner",
         "note": [
           "**Updated header marking this as the LLM-summary version of the agent.**"
+        ]
+      },
+      {
+        "anchor": "You have this local tool:",
+        "endAnchor": "Args: <valid JSON arguments for the tool>",
+        "title": "System prompt: local + MCP tools",
+        "note": [
+          "**Advertises the local search_offices tool plus the runtime-discovered MCP tools.**",
+          "- search_offices must run first — it's the RAG retrieval step",
+          "- {mcp_tool_descriptions} is filled in at runtime"
+        ]
+      },
+      {
+        "anchor": "Thought: I need to search for office information about HQ",
+        "endAnchor": "Args: {{\"c\": 25.0}}",
+        "title": "System prompt: worked example",
+        "note": [
+          "**End-to-end example: search offices, geocode, weather, convert.**",
+          "- Shows the LLM the full multi-tool TAO sequence"
+        ]
+      },
+      {
+        "anchor": "Final: <a friendly 2-3 sentence summary including the office name and",
+        "endAnchor": "interesting fact about the city>",
+        "title": "System prompt: friendly summary (v2)",
+        "note": [
+          "**v2 addition: tells the model to end with a natural-language summary.**",
+          "- Includes office, weather in °F, and one fact about the city"
+        ]
+      },
+      {
+        "anchor": "Do NOT put arguments on the Action line. Arguments go ONLY in the Args line as JSON.",
+        "endAnchor": "8. Do NOT add extra text beyond the required format",
+        "title": "System prompt: guardrails (v2)",
+        "note": [
+          "**Expanded rules for the summary version.**",
+          "- Data must come from tools; one city fact from the model is allowed"
         ]
       }
     ]
