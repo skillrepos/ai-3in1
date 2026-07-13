@@ -25,7 +25,7 @@
 >
 > When ALL merges are done, you can save your changes and close the view by clicking on the `X` in the tab at the top of the diff.
 > <br><br>
-![merge info](./images/merge-info2.png?raw=true "merge info")
+![merge info](./images/merge-info.png?raw=true "merge info")
 <br><br><br>
 
 
