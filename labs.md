@@ -294,7 +294,7 @@ As you look at the differences, note that we are using FastMCP to more easily se
 python mcp_server.py
 ```
 
-![MCP server start](./images/31ai18.png?raw=true "MCP server start") 
+![MCP server start](./images/31ai62.png?raw=true "MCP server start") 
 
 <br><br>
 
@@ -348,7 +348,7 @@ What is the weather in New York?
 
 <br><br>
 
-9.  When you're done, you can use 'exit' to stop the client and CTRL-C to stop the server. 
+9.  When you're done, you can use `exit` to stop the client and`CTRL+C` to stop the server. 
 
 <p align="center">
 **[END OF LAB]**
