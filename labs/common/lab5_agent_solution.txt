@@ -21,8 +21,8 @@ Example Agent Flow
 ------------------
   User: "Tell me about HQ"
   → Agent calls search_offices("HQ") → gets office info with city
-  → Agent calls geocode_location("Austin") → gets coordinates
-  → Agent calls get_weather(30.27, -97.74) → gets weather data
+  → Agent calls geocode_location("New York") → gets coordinates
+  → Agent calls get_weather(40.71, -74.01) → gets weather data
   → Agent calls convert_c_to_f(25.0) → gets Fahrenheit
   → Agent says DONE → displays collected results
 
@@ -153,13 +153,13 @@ Thought: I need to search for office information about HQ
 Action: search_offices
 Args: {{"query": "HQ"}}
 
-Thought: I found the office is in Austin, TX. I need coordinates.
+Thought: I found the office is in New York, NY. I need coordinates.
 Action: geocode_location
-Args: {{"name": "Austin"}}
+Args: {{"name": "New York"}}
 
 Thought: Now I'll get the weather at those coordinates
 Action: get_weather
-Args: {{"lat": 30.2672, "lon": -97.7431}}
+Args: {{"lat": 40.7128, "lon": -74.0060}}
 
 Thought: I need to convert 25.0 Celsius to Fahrenheit
 Action: convert_c_to_f

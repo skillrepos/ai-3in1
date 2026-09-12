@@ -330,7 +330,7 @@ try:
 except requests.exceptions.ConnectionError:
     print(f"   ℹ️  MCP server not running (this is OK)")
     print(f"   • Start it before running Streamlit app:")
-    print(f"     python labs/common/lab6_mcp_server_solution.txt")
+    print(f"     python mcp_server.py")
 
 except ImportError:
     print(f"   ⚠️  requests not installed (skipping MCP check)")

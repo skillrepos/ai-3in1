@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 5.2 - 07/12/26
+## Revision 5.3 - 09/12/26
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -38,7 +38,7 @@
 
 **What the Ollama example does**
 - Starts a local Ollama server inside the Codespace so you can run models locally.
-- Pulls a small model (`llama3.2:1b`) and creates an alias (`llama3.2:latest`) used by the rest of the workshop.
+- Pulls a small model (`ollama pull llama3.2`, which is the 3B default) — Ollama tags it `llama3.2:latest`, and that is the tag the rest of the workshop uses.
 - Runs the model interactively (`ollama run`) and via HTTP (`/api/generate`) to show the two common access patterns.
 - Runs a simple Python script (`simple_ollama.py`) that calls Ollama programmatically using LangChain’s Ollama integration.
 
@@ -282,7 +282,7 @@ python agent.py
 code -d labs/common/lab3_server_solution.txt mcp_server.py
 ```
 
-As you look at the differences, note that we are using FastMCP to more easily set up a server, with its *@mcp.tool* decorators to designate our functions as MCP tools. Also, we run this using the *streamable-http* transport protocol. Review each difference to see what is being done, then use the arrows to merge. When finished, click the "X" in the tab at the top to close and save the files.
+As you look at the differences, note that we are using FastMCP to more easily set up a server, with its *@mcp.tool* decorators to designate our functions as MCP tools. Also, we run this over the streamable HTTP transport — in FastMCP that is written `transport="http"`, which is what you'll see in the merged file. Review each difference to see what is being done, then use the arrows to merge. When finished, click the "X" in the tab at the top to close and save the files.
 
 ![MCP server code](./images/31ai44.png?raw=true "MCP server code") 
 
@@ -395,7 +395,7 @@ code tools/index_pdf.py
 
 <br><br>
 
-3. Let's create a vector database of our local python files. Run the program to index those as below. You'll see the program loading Chroma's built-in embedding model that will turn the code chunks into numeric represenations in the vector database and then it will read and index our *.py files. **When you run the command below, there may be a pause while things get loaded.** (You can ignore any warnings in yellow text prior to the output.)
+3. Let's create a vector database of our local python files. Run the program to index those as below. You'll see the program loading its embedding model — an explicit Sentence-Transformers model, `all-MiniLM-L6-v2` — that will turn the code chunks into numeric representations in the vector database and then it will read and index our *.py files. **When you run the command below, there may be a pause while things get loaded.** (You can ignore any warnings in yellow text prior to the output.)
 
 ```
 python tools/index_code.py
