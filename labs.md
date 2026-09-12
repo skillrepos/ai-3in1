@@ -1,7 +1,7 @@
 # AI 3-in-1: Agents, RAG and Local Models
 ## Building out an AI agent that uses RAG and runs locally
 ## Session labs 
-## Revision 5.3 - 09/12/26
+## Revision 5.4 - 09/12/26
 
 **Follow the startup instructions in the README.md file IF NOT ALREADY DONE!**
 
@@ -37,26 +37,15 @@
 ---
 
 **What the Ollama example does**
-- Starts a local Ollama server inside the Codespace so you can run models locally.
-- Pulls a small model (`ollama pull llama3.2`, which is the 3B default) — Ollama tags it `llama3.2:latest`, and that is the tag the rest of the workshop uses.
-- Runs the model interactively (`ollama run`) and via HTTP (`/api/generate`) to show the two common access patterns.
-- Runs a simple Python script (`simple_ollama.py`) that calls Ollama programmatically using LangChain’s Ollama integration.
-
-**What it demonstrates**
-- The difference between:
-  - **Interactive CLI usage** (quick testing),
-  - **Direct HTTP API calls** (service-style integration),
-  - **Python integration** (application development).
-- Why “local model execution” matters for workshops and prototyping:
-  - consistent environment, no cloud account required, predictable tooling.
-- The importance of using a consistent model tag/alias (`llama3.2:latest`) so later labs behave consistently.
+- Starts a local Ollama server inside the Codespace and pulls a small model (`ollama pull llama3.2`, the 3B default) — Ollama tags it `llama3.2:latest`, and that's the tag the rest of the workshop uses.
+- Runs that model interactively (`ollama run`), via HTTP (`/api/generate`), and from a Python script (`simple_ollama.py`) using LangChain’s Ollama integration.
 
 ---
 
 ### Steps
 
 
-1. The Ollama app is already installed as part of the codespace setup via [**scripts/startOllama.sh**](./scripts/startOllama.sh). Start it running with the first command below. (If you need to restart it at some point, you can use the same command. To see the different options Ollama makes available for working with models, you can run the second command below in the *TERMINAL*. 
+1. The Ollama app is already installed as part of the codespace setup via [**scripts/startOllama.sh**](./scripts/startOllama.sh). Start it running with the first command below. (If you need to restart it at some point, you can use the same command. To see the options Ollama makes available, run the second command below in the *TERMINAL*. 
 
 ```
 OLLAMA_KEEP_ALIVE=-1 ollama serve &
@@ -75,7 +64,7 @@ ollama --help
 
 <br><br>
 
-3. This will put you on the specific page about that model. Scroll down and scan the various information available about this model.
+3. This will put you on the page for that model. Scroll down and scan the information available.
 ![reading about llama3.2](./images/31ai37.png?raw=true "reading about llama3.2")
 
 <br><br>
@@ -91,7 +80,7 @@ ollama pull llama3.2
 
 <br><br>
 
-5. Once the model is downloaded, you can see it with the first command below. Then run the model with the second command below. This will load it and make it available to query/prompt. 
+5. Once the model is downloaded, you can see it with the first command below. Then run it with the second command — this loads it and makes it available to query/prompt. 
 
 ```
 ollama list
@@ -122,7 +111,7 @@ curl http://localhost:11434/api/generate -d '{
 
 <br><br>
 
-8. This will take a minute or so to run. You should see a long text response . You can try out some other prompts/queries if you want.
+8. This will take a minute or so to run. You should see a long text response . You can try out some other prompts if you want.
 
 ![query response](./images/aiapps37.png?raw=true "Query response")
 
@@ -154,7 +143,7 @@ python simple_ollama.py
 
 <br><br>
 
-11. When prompted, enter a question like "What is the capital of France?" and press Enter. You should see the model's response printed to the terminal. This demonstrates how easy it is to integrate Ollama into a Python application. Feel free to try other prompts. 
+11. When prompted, enter a question like "What is the capital of France?" and press Enter. You should see the model's response printed to the terminal. Feel free to try other prompts. 
 
 ![query](./images/31ai35.png?raw=true "query")
 
@@ -263,32 +252,25 @@ python agent.py
 ---
 
 **What the MCP example does**
-- Implements an **MCP server** using `FastMCP` that exposes weather-related tools.
-- Connects an **MCP client agent** that uses an LLM to decide which MCP tools to invoke.
-- Handles retries/timeouts and demonstrates robustness when tool calls fail.
-
-**What it demonstrates**
-- How **FastMCP** standardizes tool interfaces via JSON-RPC with minimal boilerplate.
-- Clean separation between **tool hosting (server)** and **agent orchestration (client + LLM)**.
-- Protocol-first design: capability listing, structured tool schemas, and transport configuration (stdio vs streamable HTTP).
+- Implements an **MCP server** using `FastMCP` that exposes weather-related tools, plus an **MCP client agent** that uses an LLM to decide which of those tools to invoke.
 
 ---
 
 ### Steps
 
-1. We have partial implementations of an MCP server and an agent that uses an MCP client to connect to tools on the server. So that you can get acquainted with the main parts of each, we'll build them out as we did the agent in the second lab - by viewing differences and merging. Let's start with the server. Run the command below to see the differences.
+1. We have partial implementations of an MCP server and an agent that uses an MCP client to connect to tools on the server. We'll build them out as we did the agent in Lab 2 - by viewing differences and merging. Let's start with the server. Run the command below to see the differences.
 
 ```
 code -d labs/common/lab3_server_solution.txt mcp_server.py
 ```
 
-As you look at the differences, note that we are using FastMCP to more easily set up a server, with its *@mcp.tool* decorators to designate our functions as MCP tools. Also, we run this over the streamable HTTP transport — in FastMCP that is written `transport="http"`, which is what you'll see in the merged file. Review each difference to see what is being done, then use the arrows to merge. When finished, click the "X" in the tab at the top to close and save the files.
+As you look at the differences, note that we are using FastMCP to more easily set up a server, with its *@mcp.tool* decorators to designate our functions as MCP tools. Also, we run this over the streamable HTTP transport — in FastMCP that is written `transport="http"`. Review each difference to see what is being done, then use the arrows to merge. When finished, click the "X" in the tab at the top to close and save the files.
 
 ![MCP server code](./images/31ai44.png?raw=true "MCP server code") 
 
 <br><br>
 
-2. Now that we've built out the server code, run it using the command below. You should see some startup messages similar to the ones in the screenshot.
+2. Now run the server using the command below. You should see startup messages similar to the ones in the screenshot.
 
 ```
 python mcp_server.py
@@ -298,14 +280,14 @@ python mcp_server.py
 
 <br><br>
 
-3. Since this terminal is now tied up with the running server, we need to have a second terminal to use to work with the client. So that we can see the server responses, let's just open another terminal side-by-side with this one. To do that, over in the upper right section of the *TERMINAL* panel, find the plus sign and click on the downward arrow next to it. (See screenshot below.) Then select "Split Terminal" from the popup menu. Then click into that terminal to do the steps for the rest of the lab. (FYI: If you want to open another full terminal at some point, you can just click on the "+" itself and not the down arrow.)
+3. This terminal is now tied up with the running server, so we need a second one for the client. So that we can see the server responses, let's open another terminal side-by-side with this one. To do that, in the upper right of the *TERMINAL* panel, find the plus sign and click on the downward arrow next to it. (See screenshot below.) Then select "Split Terminal" from the popup menu. Then click into that terminal to do the steps for the rest of the lab. (FYI: If you want to open another full terminal at some point, you can just click on the "+" itself and not the down arrow.)
 
 ![Opening a second terminal](./images/aiapps38.png?raw=true "Opening a second terminal") 
 
 <br><br>
 
-4. We also have a small helper script that connects to the MCP server and **lists the available tools** (for demo purposes).
-  Take a look at the code in `tools/discover_tools.py`, then run it to print the server’s tool list: (Make sure to click back in the terminal before typing the second command.)
+4. We also have a small helper script that connects to the MCP server and **lists the available tools**.
+  Take a look at the code in `tools/discover_tools.py`, then run it: (Make sure to click back in the terminal before typing the second command.)
 
 ```
 code tools/discover_tools.py
@@ -316,7 +298,7 @@ python tools/discover_tools.py
 
 <br><br>
 
-5. Now, let's turn our attention to the agent that will use the MCP server through an MCP client interface. In the second terminal, run a diff command so we can build out the new agent.
+5. Now let's turn to the agent that will use the MCP server through an MCP client interface. In the second terminal, run a diff command to build out the new agent.
 
 ```
 code -d labs/common/lab3_agent_solution_dynamic.txt mcp_agent.py
@@ -324,13 +306,13 @@ code -d labs/common/lab3_agent_solution_dynamic.txt mcp_agent.py
 
 <br><br>
 
-6. Review and merge the changes as before. What we're highlighting in this step are the overall flow, how the agent **dynamically discovers** available tools from the MCP server using `list_tools()` (instead of hardcoding them), how those tool descriptions are injected into the *System Prompt* at runtime, and how the agent decides which tool to call via the LLM output. This is the key MCP advantage — the client doesn't need to know in advance what tools the server offers. When finished, close the tab to save the changes as before.
+6. Review and merge the changes as before. Notice the overall flow, how the agent **dynamically discovers** available tools from the MCP server using `list_tools()` (instead of hardcoding them), how those tool descriptions are injected into the *System Prompt* at runtime, and how the agent decides which tool to call via the LLM output. This is the key MCP advantage — the client doesn't need to know in advance what tools the server offers. When finished, close the tab to save your changes.
 
 ![Agent using MCP client code](./images/31ai43.png?raw=true "Agent using MCP client code") 
 
 <br><br>
    
-7. After you've made and saved the changes, you can run the client in the terminal with the command below. **Note that there may be a long pause initially while the model is loaded and processed before you get the final answer. This could be on the order of minutes.**
+7. Now you can run the client in the terminal with the command below. **Note that there may be a long pause initially while the model is loaded and processed before you get the final answer. This could be on the order of minutes.**
 
 ```
 python mcp_agent.py
@@ -338,7 +320,7 @@ python mcp_agent.py
 
 <br><br>
 
-8. The agent should start up, and wait for you to prompt it about weather in a location. You'll be able to see similar TAO output. And you'll also be able to see the server INFO messages in the other terminal as the MCP connections and events happen. A suggested prompt is below.
+8. The agent should start up and wait for you to prompt it about weather in a location. You'll see similar TAO output, and you'll also see the server INFO messages in the other terminal as the MCP connections and events happen. A suggested prompt is below.
 
 ```
 What is the weather in New York?
@@ -362,25 +344,14 @@ What is the weather in New York?
 ---
 
 **What the vector database example does**
-- Builds a local vector index using ChromaDB for:
-  - the repository’s Python files (code indexing), and
-  - a PDF document (`data/offices.pdf`) containing office information.
-- Uses an embedding model to convert chunks of text into vectors.
-- Runs a search tool that retrieves the top matching chunks using similarity scoring.
-
-**What it demonstrates**
-- **Retrieval-only semantic search**:
-  - embeddings + vector similarity return relevant chunks,
-  - but do **not** generate a natural-language answer by themselves.
-- Why chunking + embeddings enable “meaning-based” search beyond keywords.
-- How the same retrieval approach applies to different sources (code vs PDF).
-- How similarity scores help you compare results and judge confidence before you generate an answer (Lab 5).
+- Builds a local vector index using ChromaDB for the repository’s Python files and for a PDF document (`data/offices.pdf`) containing office information.
+- Uses an embedding model to convert chunks of text into vectors, then runs a search tool that retrieves the top matching chunks using similarity scoring.
 
 ---
 
 ### Steps
 
-1. For this lab and the next one, we have a data file that we'll be usihg that contains a list of office information and details for a ficticious company. The file is in [**data/offices.pdf**](./data/offices.pdf). You can use the link to open it and take a look at it.
+1. For this lab and the next one, we have a data file that we'll be using that contains a list of office information and details for a fictitious company. The file is in [**data/offices.pdf**](./data/offices.pdf). You can use the link to open it and take a look at it.
 
 ![PDF data file](./images/31ai23.png?raw=true "PDF data file") 
 
@@ -405,7 +376,7 @@ python tools/index_code.py
 
 <br><br>
 
-4. To help us do easy/simple searches against our vector databases, we have another tool at [**tools/search.py**](./tools/search.py). This tool connects to the ChromaDB vector database we create, and, using cosine similarity metrics, finds the top "hits" (matching chunks) and prints them out. You can open it and look at the code in the usual way if you want. No changes are needed to the code.
+4. To help us do simple searches against our vector databases, we have another tool at [**tools/search.py**](./tools/search.py). This tool connects to the ChromaDB vector database we create, and, using cosine similarity metrics, finds the top "hits" (matching chunks) and prints them out. You can open it and look at the code in the usual way if you want. No changes are needed to the code.
 
 ```
 code tools/search.py
@@ -469,18 +440,7 @@ High revenue branch
 ---
 
 **What the RAG + agent example does**
-- Adds a **RAG search tool** (`search_offices`) that the agent can call to find office information from the Lab 4 vector database.
-- Uses the same **TAO (Thought-Action-Observation) loop** from Labs 2 and 3, where the **LLM decides** which tools to call and in what order.
-- Combines **local tools** (vector search) with **remote tools** (MCP server) in a single agent workflow.
-- Produces office information grounded in retrieved content + live weather from MCP tools.
-
-**What it demonstrates**
-- A complete “AI 3-in-1” agentic workflow:
-  - **Local model** (LLM via Ollama drives all decisions),
-  - **RAG retrieval** (ChromaDB vector search as an agent tool),
-  - **MCP tool use** (weather/geocoding via the Lab 3 server).
-- **True agentic behavior**: the LLM controls the workflow — it decides to search offices first, extract the city, geocode it, get weather, and convert the temperature. The code doesn't hardcode this sequence.
-- How “version 2” enhances the agent's final answer by having the LLM compose a natural language summary with an interesting fact about the city.
+- Adds a **RAG search tool** (`search_offices`) that the agent can call to find office information from the Lab 4 vector database, and combines it with the **MCP tools** from Lab 3 in a single agent workflow.
 
 ---
 
@@ -490,7 +450,7 @@ High revenue branch
 
 <br><br>
 
-2. We have a starter file for the new agent in [**rag_agent.py**](./rag_agent.py). As before, we'll use the "view differences and merge" technique to learn about the code we'll be working with. The command to run this time is below. Note how this agent describes the local `search_offices` tool in the system prompt, but **dynamically discovers** the three MCP tools (`geocode_location`, `get_weather`, `convert_c_to_f`) from the MCP server at runtime using `list_tools()` — just like we saw in Lab 3. The TAO loop can dispatch to either local or remote tools. Take some time to look at each section as you merge them in.
+2. We have a starter file for the new agent in [**rag_agent.py**](./rag_agent.py). As before, we'll use the "view differences and merge" technique. The command to run this time is below. Note how this agent describes the local `search_offices` tool in the system prompt, but **dynamically discovers** the three MCP tools (`geocode_location`, `get_weather`, `convert_c_to_f`) from the MCP server at runtime using `list_tools()` — just like we saw in Lab 3. The TAO loop can dispatch to either local or remote tools. Take some time to look at each section as you merge them in.
 
 ```
 code -d labs/common/lab5_agent_solution.txt rag_agent.py
@@ -537,7 +497,7 @@ Tell me about the Southern office
 
 <br><br>
 
-8. While the agent works well and demonstrates true agentic behavior, the final output just displays the raw collected data. Let's enhance the agent so that when it finishes, the LLM composes a friendly, natural language summary that includes office details, weather, and an interesting fact about the city. To see and make the changes you can do the usual diff and merge using the command below.
+8. The agent works well, but the final output just displays the raw collected data. Let's enhance it so that when it finishes, the LLM composes a friendly, natural language summary that includes office details, weather, and an interesting fact about the city. Do the usual diff and merge using the command below.
 
 ```
 code -d labs/common/lab5_agent_solution_v2.txt rag_agent.py
